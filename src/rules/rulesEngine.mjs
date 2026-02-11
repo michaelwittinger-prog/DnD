@@ -20,6 +20,7 @@ import { fileURLToPath } from "url";
 import { createRequire } from "module";
 import { applyAiResponse } from "../pipeline/applyAiResponse.mjs";
 import { V } from "../core/violationCodes.mjs";
+import { validateTacticalEvents } from "../validation/tacticalValidator.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");
@@ -37,6 +38,7 @@ const DEFAULT_MOVEMENT_BUDGET = 6;
 /** Allowed top-level keys in AI response (defense-in-depth). */
 const ALLOWED_AI_RESPONSE_KEYS = new Set([
   "narration", "adjudication", "map_updates", "state_updates", "questions",
+  "tactical_events",
 ]);
 
 // ── RuleViolation factory ──────────────────────────────────────────────
@@ -635,6 +637,20 @@ export function evaluateProposal({ state, aiResponse }) {
           `Unknown state update operation: "${op.op}".`,
           `state_updates[${i}]`
         ));
+    }
+  }
+
+  // ── Gate 4: Tactical events validation (Phase 6.1, optional) ─────
+  if (aiResponse.tactical_events) {
+    const tacticalResult = validateTacticalEvents(aiResponse.tactical_events, state);
+    if (!tacticalResult.valid) {
+      for (const err of tacticalResult.errors) {
+        allViolations.push(violation(
+          V.TACTICAL_ACTOR_NOT_FOUND, // generic code — error message carries detail
+          err,
+          "tactical_events"
+        ));
+      }
     }
   }
 

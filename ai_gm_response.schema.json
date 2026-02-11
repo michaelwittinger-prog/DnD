@@ -34,6 +34,11 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "tactical_events": {
+      "type": "array",
+      "description": "Optional deterministic tactical event sequence. Processed strictly in array order. Absence preserves existing behavior.",
+      "items": { "$ref": "#/$defs/tactical_event" }
     }
   },
   "$defs": {
@@ -305,6 +310,24 @@
       "properties": {
         "op": { "const": "end_turn" },
         "entity_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "tactical_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "type", "actor_id"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1 },
+        "type": {
+          "enum": ["MOVE", "ATTACK", "DAMAGE", "STATUS_APPLY", "STATUS_REMOVE", "TURN_START", "TURN_END", "ROUND_END"]
+        },
+        "actor_id": { "type": "string", "minLength": 1 },
+        "target_id": { "type": ["string", "null"] },
+        "position_before": { "$ref": "#/$defs/pos" },
+        "position_after": { "$ref": "#/$defs/pos" },
+        "value": { "type": "integer" },
+        "status": { "type": ["string", "null"] },
+        "duration": { "type": "integer", "minimum": 1 }
       }
     }
   }
