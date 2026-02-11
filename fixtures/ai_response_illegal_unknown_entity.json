@@ -1,0 +1,20 @@
+{
+  "narration": "The phantom strikes from the shadows.",
+  "adjudication": "Attack roll 18 vs AC 14 hits. 6 damage dealt.",
+  "map_updates": [
+    {
+      "op": "move_entity",
+      "entity_id": "fake-entity-999",
+      "from": { "x": 0, "y": 0 },
+      "to": { "x": 1, "y": 1 }
+    }
+  ],
+  "state_updates": [
+    {
+      "op": "set_hp",
+      "entity_id": "invented-npc-42",
+      "current": 10
+    }
+  ],
+  "questions": []
+}

@@ -1,0 +1,13 @@
+{
+  "narration": "This response tries to directly mutate state via forbidden keys.",
+  "adjudication": "No rules were adjudicated.",
+  "map_updates": [],
+  "state_updates": [],
+  "questions": [],
+  "entities": [
+    { "id": "pc-01", "stats": { "hp": 0 } }
+  ],
+  "position_overrides": {
+    "pc-01": { "x": 99, "y": 99 }
+  }
+}

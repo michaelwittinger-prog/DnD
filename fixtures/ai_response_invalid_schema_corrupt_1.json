@@ -1,0 +1,11 @@
+{
+  "narration": "This response is missing adjudication and other required fields.",
+  "map_updates": [
+    {
+      "op": "move_entity",
+      "entity_id": "pc-01",
+      "from": { "x": 5, "y": 6 },
+      "to": { "x": 6, "y": 6 }
+    }
+  ]
+}
