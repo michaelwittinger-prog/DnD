@@ -59,7 +59,7 @@ export function applyRollInitiative(state) {
   state.log.events.push({
     id: eventId,
     timestamp: state.timestamp,
-    type: "roll_initiative",
+    type: "INITIATIVE_ROLLED",
     payload: {
       order: rolls.map((r) => ({ entityId: r.id, roll: r.roll })),
     },
@@ -99,7 +99,7 @@ export function applyEndTurn(state, action) {
   state.log.events.push({
     id: eventId,
     timestamp: state.timestamp,
-    type: "end_turn",
+    type: "TURN_ENDED",
     payload: { entityId: action.entityId, nextEntityId: state.combat.activeEntityId, round: state.combat.round },
   });
 

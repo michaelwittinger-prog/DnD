@@ -167,8 +167,8 @@ export const combatExample = {
   log: {
     events: [
       { id: "evt-c01", timestamp: "2026-02-11T14:25:00Z", type: "combat_start", payload: { participants: ["pc-seren", "pc-miri", "npc-goblin-a", "npc-goblin-b"] } },
-      { id: "evt-c02", timestamp: "2026-02-11T14:26:00Z", type: "attack", payload: { attacker: "pc-seren", target: "npc-goblin-a", damage: 7, hit: true } },
-      { id: "evt-c03", timestamp: "2026-02-11T14:27:00Z", type: "move", payload: { entityId: "npc-goblin-b", from: { x: 8, y: 7 }, to: { x: 9, y: 8 } } },
+      { id: "evt-c02", timestamp: "2026-02-11T14:26:00Z", type: "ATTACK_RESOLVED", payload: { attacker: "pc-seren", target: "npc-goblin-a", damage: 7, hit: true } },
+      { id: "evt-c03", timestamp: "2026-02-11T14:27:00Z", type: "MOVE_APPLIED", payload: { entityId: "npc-goblin-b", from: { x: 8, y: 7 }, to: { x: 9, y: 8 } } },
     ],
   },
   ui: { selectedEntityId: "pc-seren", hoveredCell: { x: 7, y: 5 } },

@@ -50,6 +50,16 @@ docs/
   mir_overview.md             — This file
   mir_state_model.md          — Detailed state model documentation
   mir_state_invariants.md     — 25 testable invariants
+  mir_action_model.md         — DeclaredAction definitions (MIR 1.4)
+  mir_event_model.md          — EngineEvent definitions (MIR 1.4)
+  mir_engine_contract.md      — Engine contract and determinism guarantee (MIR 1.4)
+src/engine/
+  applyAction.mjs             — Core state transition function
+  movement.mjs                — MOVE handler
+  attack.mjs                  — ATTACK handler
+  initiative.mjs              — ROLL_INITIATIVE / END_TURN handlers
+  rng.mjs                     — Deterministic PRNG
+  errors.mjs                  — Structured error codes
 src/state/
   validateGameState.mjs       — Schema + invariant validator
   exampleStates.mjs           — Example states for testing

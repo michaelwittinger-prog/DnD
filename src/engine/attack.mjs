@@ -73,7 +73,7 @@ export function applyAttack(state, action) {
   state.log.events.push({
     id: eventId,
     timestamp: state.timestamp,
-    type: "attack",
+    type: "ATTACK_RESOLVED",
     payload: {
       attackerId,
       targetId,

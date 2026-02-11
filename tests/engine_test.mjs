@@ -1,7 +1,8 @@
 /**
- * engine_test.mjs — MIR 1.3 Engine Tests.
+ * engine_test.mjs — MIR 1.4 Engine Tests.
  *
- * Tests: applyAction, movement, attack, initiative, RNG determinism.
+ * Tests: applyAction, movement, attack, initiative, RNG determinism,
+ *        ACTION_REJECTED events, events[] return field.
  */
 
 import { applyAction } from "../src/engine/applyAction.mjs";
@@ -9,7 +10,7 @@ import { explorationExample } from "../src/state/exampleStates.mjs";
 import { hashSeed, rollD20 } from "../src/engine/rng.mjs";
 
 console.log("\n╔══════════════════════════════════════╗");
-console.log("║  MIR 1.3 — Engine Tests               ║");
+console.log("║  MIR 1.4 — Engine Tests               ║");
 console.log("╚══════════════════════════════════════╝\n");
 
 let passed = 0, failed = 0;
@@ -36,6 +37,10 @@ console.log("[Test 1] Valid MOVE — pc-seren moves right 2 cells");
   check(origSeren.position.y === 3, "Original state NOT mutated");
   // Log event appended
   check(r.nextState.log.events.length > state.log.events.length, "Log event appended");
+  // Events returned
+  check(r.events.length === 1, "events[] has 1 event");
+  check(r.events[0].type === "MOVE_APPLIED", "Event type is MOVE_APPLIED");
+  check(r.events[0].payload.finalPosition.y === 5, "Event payload has finalPosition");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -50,7 +55,13 @@ console.log("\n[Test 2] Invalid MOVE — into blocked cell");
   const r = applyAction(state, action);
   check(!r.success, "MOVE into blocked cell fails");
   check((r.errors ?? []).some(e => e.includes("BLOCKED_CELL")), "BLOCKED_CELL error");
-  check(r.nextState === state, "State unchanged (same ref)");
+  // Game-meaningful state unchanged (position, entities, combat, rng)
+  const seren = r.nextState.entities.players.find(e => e.id === "pc-seren");
+  check(seren.position.x === 2 && seren.position.y === 2, "Seren position unchanged");
+  // ACTION_REJECTED event appended
+  check(r.events.length === 1, "events[] has 1 rejection event");
+  check(r.events[0].type === "ACTION_REJECTED", "Event type is ACTION_REJECTED");
+  check(r.events[0].payload.reasons.some(r => r.includes("BLOCKED_CELL")), "Rejection reason has BLOCKED_CELL");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -63,6 +74,7 @@ console.log("\n[Test 3] Invalid MOVE — diagonal step");
   const r = applyAction(state, action);
   check(!r.success, "Diagonal move fails");
   check(r.errors.some(e => e.includes("DIAGONAL")), "DIAGONAL error");
+  check(r.events[0].type === "ACTION_REJECTED", "ACTION_REJECTED event");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -72,9 +84,6 @@ console.log("\n[Test 4] Invalid MOVE — exceeds movement speed");
 {
   const state = freshState();
   // movementSpeed is 6 — path of 7 steps
-  const path = [];
-  for (let i = 1; i <= 7; i++) path.push({ x: 2, y: 3 + (i % 2 === 1 ? 1 : 0) + Math.floor(i/2) });
-  // Actually let's make a simple back-and-forth of 7 steps
   const longPath = [
     {x:2,y:4},{x:2,y:5},{x:2,y:6},{x:2,y:7},{x:2,y:8},{x:2,y:9},{x:1,y:9}
   ];
@@ -82,6 +91,7 @@ console.log("\n[Test 4] Invalid MOVE — exceeds movement speed");
   const r = applyAction(state, action);
   check(!r.success, "Over-speed move fails");
   check(r.errors.some(e => e.includes("OUT_OF_RANGE")), "OUT_OF_RANGE error");
+  check(r.events[0].type === "ACTION_REJECTED", "ACTION_REJECTED event");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -89,15 +99,14 @@ console.log("\n[Test 4] Invalid MOVE — exceeds movement speed");
 // ════════════════════════════════════════════════════════════════════
 console.log("\n[Test 5] Invalid MOVE — into occupied cell");
 {
-  const state = freshState();
-  // npc-barkeep is at (6,2) — move Seren from (2,3) toward (6,2)
-  // Just one step to occupied: put seren next to barkeep first
+  // npc-barkeep is at (6,2) — move Seren adjacent and try to step on barkeep
   const s = freshState();
   s.entities.players[0].position = { x: 5, y: 2 }; // manually place adjacent
   const action = { type: "MOVE", entityId: "pc-seren", path: [{ x: 6, y: 2 }] };
   const r = applyAction(s, action);
   check(!r.success, "Move into occupied cell fails");
   check(r.errors.some(e => e.includes("OVERLAP")), "OVERLAP error");
+  check(r.events[0].type === "ACTION_REJECTED", "ACTION_REJECTED event");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -105,8 +114,6 @@ console.log("\n[Test 5] Invalid MOVE — into occupied cell");
 // ════════════════════════════════════════════════════════════════════
 console.log("\n[Test 6] Invalid MOVE — out of map bounds");
 {
-  const state = freshState();
-  // Seren at (2,3). Move to y=-1
   const s = freshState();
   s.entities.players[0].position = { x: 0, y: 0 };
   const action = { type: "MOVE", entityId: "pc-seren", path: [{ x: 0, y: -1 }] };
@@ -123,11 +130,13 @@ console.log("\n[Test 7] Invalid action shapes");
   const state = freshState();
   let r = applyAction(state, null);
   check(!r.success, "null action fails");
+  check(r.events.length === 1 && r.events[0].type === "ACTION_REJECTED", "null → ACTION_REJECTED");
   r = applyAction(state, { type: "FIREBALL" });
   check(!r.success, "Unknown type fails");
   check(r.errors.some(e => e.includes("INVALID_ACTION")), "INVALID_ACTION error");
   r = applyAction(state, { type: "MOVE" });
   check(!r.success, "MOVE without entityId fails");
+  check(r.events[0].type === "ACTION_REJECTED", "shape error → ACTION_REJECTED");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -182,6 +191,9 @@ console.log("\n[Test 10] ROLL_INITIATIVE — exploration → combat");
   ]);
   const allInOrder = r.nextState.combat.initiativeOrder.every(id => allIds.has(id));
   check(allInOrder, "All initiative IDs are real entities");
+  // Events returned
+  check(r.events.length === 1, "events[] has 1 event");
+  check(r.events[0].type === "INITIATIVE_ROLLED", "Event type is INITIATIVE_ROLLED");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -195,6 +207,7 @@ console.log("\n[Test 11] ROLL_INITIATIVE — already in combat fails");
   const r2 = applyAction(r1.nextState, { type: "ROLL_INITIATIVE" });
   check(!r2.success, "Second ROLL_INITIATIVE fails");
   check(r2.errors.some(e => e.includes("COMBAT_ALREADY")), "COMBAT_ALREADY error");
+  check(r2.events[0].type === "ACTION_REJECTED", "ACTION_REJECTED event");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -210,6 +223,7 @@ console.log("\n[Test 12] END_TURN — advances turn");
   const r2 = applyAction(r1.nextState, { type: "END_TURN", entityId: activeId });
   check(r2.success, "END_TURN succeeds");
   check(r2.nextState.combat.activeEntityId !== activeId, "Active entity changed");
+  check(r2.events.length === 1 && r2.events[0].type === "TURN_ENDED", "Event type is TURN_ENDED");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -225,6 +239,7 @@ console.log("\n[Test 13] END_TURN — wrong entity fails");
   const r2 = applyAction(r1.nextState, { type: "END_TURN", entityId: otherId });
   check(!r2.success, "END_TURN by wrong entity fails");
   check(r2.errors.some(e => e.includes("NOT_YOUR_TURN")), "NOT_YOUR_TURN error");
+  check(r2.events[0].type === "ACTION_REJECTED", "ACTION_REJECTED event");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -238,13 +253,16 @@ console.log("\n[Test 14] ATTACK — in exploration mode");
   const r = applyAction(state, action);
   check(r.success, "Attack in exploration succeeds");
   // Check log has attack event
-  const atkEvents = r.nextState.log.events.filter(e => e.type === "attack");
-  check(atkEvents.length > 0, "Attack event in log");
+  const atkEvents = r.nextState.log.events.filter(e => e.type === "ATTACK_RESOLVED");
+  check(atkEvents.length > 0, "ATTACK_RESOLVED event in log");
   const payload = atkEvents[0].payload;
   check(payload.attackerId === "pc-seren", "Attacker correct");
   check(payload.targetId === "npc-barkeep", "Target correct");
   check(typeof payload.attackRoll === "number", "Attack roll recorded");
   check(typeof payload.hit === "boolean", "Hit recorded");
+  // Events returned
+  check(r.events.length === 1, "events[] has 1 event");
+  check(r.events[0].type === "ATTACK_RESOLVED", "Event type is ATTACK_RESOLVED");
   // Original state not mutated
   check(state.entities.npcs[0].stats.hpCurrent === 8, "Original hp unchanged");
 }
@@ -263,6 +281,8 @@ console.log("\n[Test 15] ATTACK — deterministic (same seed → same result)");
   const hp1 = r1.nextState.entities.npcs[0].stats.hpCurrent;
   const hp2 = r2.nextState.entities.npcs[0].stats.hpCurrent;
   check(hp1 === hp2, `Deterministic: barkeep HP same (${hp1} = ${hp2})`);
+  // Events also identical
+  check(JSON.stringify(r1.events) === JSON.stringify(r2.events), "Events identical across runs");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -275,6 +295,7 @@ console.log("\n[Test 16] ATTACK — self attack fails");
   const r = applyAction(state, { type: "ATTACK", attackerId: "pc-seren", targetId: "pc-seren" });
   check(!r.success, "Self attack fails");
   check(r.errors.some(e => e.includes("SELF_ATTACK")), "SELF_ATTACK error");
+  check(r.events[0].type === "ACTION_REJECTED", "ACTION_REJECTED event");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -287,6 +308,7 @@ console.log("\n[Test 17] ATTACK — nonexistent target");
   const r = applyAction(state, { type: "ATTACK", attackerId: "pc-seren", targetId: "npc-ghost" });
   check(!r.success, "Attack on nonexistent fails");
   check(r.errors.some(e => e.includes("ENTITY_NOT_FOUND")), "ENTITY_NOT_FOUND error");
+  check(r.events[0].type === "ACTION_REJECTED", "ACTION_REJECTED event");
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -304,6 +326,7 @@ console.log("\n[Test 18] MOVE during combat — NOT_YOUR_TURN");
     const r2 = applyAction(r1.nextState, { type: "MOVE", entityId: otherId, path: [{ x: 0, y: 0 }] });
     check(!r2.success, "Move by non-active entity fails");
     check(r2.errors.some(e => e.includes("NOT_YOUR_TURN")), "NOT_YOUR_TURN error");
+    check(r2.events[0].type === "ACTION_REJECTED", "ACTION_REJECTED event");
   } else {
     check(true, "(skipped — only one participant)");
   }
@@ -370,7 +393,47 @@ console.log("\n[Test 20] Full combat sequence");
 }
 
 // ════════════════════════════════════════════════════════════════════
+// Test 21: Contract — events[] always present
+// ════════════════════════════════════════════════════════════════════
+console.log("\n[Test 21] Contract — events[] always present in return");
+{
+  const state = freshState();
+  // Success case
+  const r1 = applyAction(state, { type: "MOVE", entityId: "pc-seren", path: [{ x: 2, y: 4 }] });
+  check(Array.isArray(r1.events), "Success: events is array");
+  check(r1.events.length >= 1, "Success: at least 1 event");
+
+  // Action rejection case
+  const r2 = applyAction(state, { type: "MOVE", entityId: "pc-seren", path: [{ x: 99, y: 99 }] });
+  check(Array.isArray(r2.events), "Rejection: events is array");
+  check(r2.events.length === 1, "Rejection: exactly 1 event");
+  check(r2.events[0].type === "ACTION_REJECTED", "Rejection: type is ACTION_REJECTED");
+
+  // State-level failure case (invalid state)
+  const r3 = applyAction({}, { type: "MOVE", entityId: "x", path: [] });
+  check(Array.isArray(r3.events), "State failure: events is array");
+  check(r3.events.length === 0, "State failure: 0 events");
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Test 22: ACTION_REJECTED event has proper payload
+// ════════════════════════════════════════════════════════════════════
+console.log("\n[Test 22] ACTION_REJECTED payload structure");
+{
+  const state = freshState();
+  const r = applyAction(state, { type: "ATTACK", attackerId: "pc-seren", targetId: "pc-seren" });
+  check(!r.success, "Self attack rejected");
+  const evt = r.events[0];
+  check(evt.type === "ACTION_REJECTED", "Type is ACTION_REJECTED");
+  check(evt.payload.action.type === "ATTACK", "Payload action.type is ATTACK");
+  check(evt.payload.action.attackerId === "pc-seren", "Payload has attackerId");
+  check(Array.isArray(evt.payload.reasons), "Payload has reasons array");
+  check(evt.payload.reasons.length >= 1, "At least one reason");
+  check(typeof evt.id === "string" && evt.id.startsWith("evt-"), "Event has proper id");
+}
+
+// ════════════════════════════════════════════════════════════════════
 console.log(`\n══════════════════════════════════════════════════`);
 console.log(`Results: ${passed}/${passed + failed} passed, ${failed} failed`);
-console.log(failed === 0 ? "PASS: all MIR 1.3 engine tests passed" : "FAIL: some engine tests failed");
+console.log(failed === 0 ? "PASS: all MIR 1.4 engine tests passed" : "FAIL: some engine tests failed");
 if (failed) process.exit(1);

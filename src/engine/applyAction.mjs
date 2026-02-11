@@ -1,5 +1,5 @@
 /**
- * applyAction.mjs — MIR 1.3 Core State Transition Function.
+ * applyAction.mjs — MIR 1.4 Core State Transition Function.
  *
  * Validation order:
  *   1. Validate schema (MIR 1.2)
@@ -7,7 +7,12 @@
  *   3. Validate action preconditions
  *   4. Clone state, apply mutation
  *   5. Validate invariants on result
- *   6. Return { nextState, success, errors? }
+ *   6. Return { nextState, events, success, errors? }
+ *
+ * Contract (see docs/mir_engine_contract.md):
+ *   - Success: returns nextState with 1+ EngineEvents appended to log.
+ *   - Action-level failure: returns clone with exactly 1 ACTION_REJECTED event.
+ *   - State-level failure: returns previousState unchanged, no events.
  *
  * No partial mutations. No side effects.
  */
@@ -84,55 +89,98 @@ function validateTurnOrder(state, action) {
 }
 
 /**
+ * Build a summary of a DeclaredAction for the rejection event payload.
+ * Includes `type` and any identifying fields, but omits bulky data like paths.
+ * @param {DeclaredAction} action
+ * @returns {object}
+ */
+function summarizeAction(action) {
+  if (!action || typeof action !== "object") return { type: "UNKNOWN" };
+  const summary = { type: action.type ?? "UNKNOWN" };
+  if (action.entityId) summary.entityId = action.entityId;
+  if (action.attackerId) summary.attackerId = action.attackerId;
+  if (action.targetId) summary.targetId = action.targetId;
+  return summary;
+}
+
+/**
+ * Build an ACTION_REJECTED result. Clones previousState, appends exactly one
+ * ACTION_REJECTED event to the log, and returns the contract-compliant shape.
+ *
+ * @param {object} previousState
+ * @param {DeclaredAction} action
+ * @param {Array<{code:string,message:string}|string>} rawErrors
+ * @returns {{ nextState: object, events: object[], success: false, errors: string[] }}
+ */
+function rejectAction(previousState, action, rawErrors) {
+  const clone = structuredClone(previousState);
+  const errorStrings = rawErrors.map((e) =>
+    typeof e === "string" ? e : `[${e.code}] ${e.message}`
+  );
+  const eventId = `evt-${(clone.log.events.length + 1).toString().padStart(4, "0")}`;
+  const rejectionEvent = {
+    id: eventId,
+    timestamp: clone.timestamp,
+    type: "ACTION_REJECTED",
+    payload: {
+      action: summarizeAction(action),
+      reasons: errorStrings,
+    },
+  };
+  clone.log.events.push(rejectionEvent);
+  return {
+    nextState: clone,
+    events: [rejectionEvent],
+    success: false,
+    errors: errorStrings,
+  };
+}
+
+/**
  * Core state transition function.
  *
  * @param {object} previousState — current GameState
  * @param {DeclaredAction} declaredAction
- * @returns {{ nextState: object, success: boolean, errors?: string[] }}
+ * @returns {{ nextState: object, events: object[], success: boolean, errors?: string[] }}
  */
 export function applyAction(previousState, declaredAction) {
-  // 1. Validate schema
+  // 1. Validate schema — state-level failure, no events
   const schemaResult = validateGameState(previousState);
   if (!schemaResult.ok) {
     return {
       nextState: previousState,
+      events: [],
       success: false,
       errors: schemaResult.errors.map((e) => `[SCHEMA] ${e}`),
     };
   }
 
-  // 2. Validate invariants on input state
+  // 2. Validate invariants on input state — state-level failure, no events
   const preInvResult = validateInvariants(previousState);
   if (!preInvResult.ok) {
     return {
       nextState: previousState,
+      events: [],
       success: false,
       errors: preInvResult.errors.map((e) => `[PRE_INVARIANT] ${e}`),
     };
   }
 
-  // 3a. Validate action shape
+  // 3a. Validate action shape — action-level failure, ACTION_REJECTED
   const shapeErrors = validateActionShape(declaredAction);
   if (shapeErrors.length > 0) {
-    return {
-      nextState: previousState,
-      success: false,
-      errors: shapeErrors.map((e) => `[${e.code}] ${e.message}`),
-    };
+    return rejectAction(previousState, declaredAction, shapeErrors);
   }
 
-  // 3b. Validate turn-order preconditions
+  // 3b. Validate turn-order preconditions — action-level failure, ACTION_REJECTED
   const turnErrors = validateTurnOrder(previousState, declaredAction);
   if (turnErrors.length > 0) {
-    return {
-      nextState: previousState,
-      success: false,
-      errors: turnErrors.map((e) => `[${e.code}] ${e.message}`),
-    };
+    return rejectAction(previousState, declaredAction, turnErrors);
   }
 
   // 4. Clone state and apply mutation
   const clone = structuredClone(previousState);
+  const eventsBefore = clone.log.events.length;
   let result;
 
   switch (declaredAction.type) {
@@ -149,52 +197,27 @@ export function applyAction(previousState, declaredAction) {
       result = applyEndTurn(clone, declaredAction);
       break;
     default:
-      return {
-        nextState: previousState,
-        success: false,
-        errors: [`[INVALID_ACTION] Unhandled action type`],
-      };
+      return rejectAction(previousState, declaredAction, [
+        makeError(ErrorCode.INVALID_ACTION, "Unhandled action type"),
+      ]);
   }
 
   if (!result.ok) {
-    return {
-      nextState: previousState,
-      success: false,
-      errors: result.errors.map((e) => `[${e.code}] ${e.message}`),
-    };
-  }
-
-  // Append move event to log (ATTACK and INITIATIVE handle their own logging)
-  if (declaredAction.type === "MOVE") {
-    const eventId = `evt-${(clone.log.events.length + 1).toString().padStart(4, "0")}`;
-    const entity = [
-      ...(clone.entities?.players ?? []),
-      ...(clone.entities?.npcs ?? []),
-      ...(clone.entities?.objects ?? []),
-    ].find((e) => e.id === declaredAction.entityId);
-    clone.log.events.push({
-      id: eventId,
-      timestamp: clone.timestamp,
-      type: "move",
-      payload: {
-        entityId: declaredAction.entityId,
-        path: declaredAction.path,
-        finalPosition: entity ? { x: entity.position.x, y: entity.position.y } : null,
-      },
-    });
+    return rejectAction(previousState, declaredAction, result.errors);
   }
 
   // 5. Validate invariants on resulting state
   const postInvResult = validateInvariants(clone);
   if (!postInvResult.ok) {
-    // Rollback: return original state
-    return {
-      nextState: previousState,
-      success: false,
-      errors: postInvResult.errors.map((e) => `[POST_INVARIANT] ${e}`),
-    };
+    // Rollback: reject with post-invariant errors
+    return rejectAction(
+      previousState,
+      declaredAction,
+      postInvResult.errors.map((e) => makeError(ErrorCode.POST_INVARIANT, e))
+    );
   }
 
-  // 6. Return success
-  return { nextState: clone, success: true };
+  // 6. Return success with events
+  const newEvents = clone.log.events.slice(eventsBefore);
+  return { nextState: clone, events: newEvents, success: true };
 }

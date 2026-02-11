@@ -127,5 +127,18 @@ export function applyMove(state, action) {
   entity.position.x = finalPos.x;
   entity.position.y = finalPos.y;
 
+  // Append log event
+  const eventId = `evt-${(state.log.events.length + 1).toString().padStart(4, "0")}`;
+  state.log.events.push({
+    id: eventId,
+    timestamp: state.timestamp,
+    type: "MOVE_APPLIED",
+    payload: {
+      entityId,
+      path,
+      finalPosition: { x: finalPos.x, y: finalPos.y },
+    },
+  });
+
   return { ok: true, errors: [] };
 }
