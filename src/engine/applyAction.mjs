@@ -17,7 +17,7 @@
  * No partial mutations. No side effects.
  */
 
-import { validateGameState, validateInvariants } from "../state/validateGameState.mjs";
+import { validateGameState, validateInvariants } from "../state/validation/index.mjs";
 import { ErrorCode, makeError } from "./errors.mjs";
 import { applyMove } from "./movement.mjs";
 import { applyAttack } from "./attack.mjs";
@@ -29,10 +29,11 @@ import { applyRollInitiative, applyEndTurn } from "./initiative.mjs";
  *   | { type: "ATTACK"; attackerId: string; targetId: string }
  *   | { type: "END_TURN"; entityId: string }
  *   | { type: "ROLL_INITIATIVE" }
+ *   | { type: "SET_SEED"; seed: string }
  * } DeclaredAction
  */
 
-const VALID_ACTION_TYPES = new Set(["MOVE", "ATTACK", "END_TURN", "ROLL_INITIATIVE"]);
+const VALID_ACTION_TYPES = new Set(["MOVE", "ATTACK", "END_TURN", "ROLL_INITIATIVE", "SET_SEED"]);
 
 /**
  * Validate that a declared action has the correct shape.
@@ -59,6 +60,11 @@ function validateActionShape(action) {
       if (!action.entityId) return [makeError(ErrorCode.INVALID_ACTION, "END_TURN requires entityId")];
       break;
     case "ROLL_INITIATIVE":
+      break;
+    case "SET_SEED":
+      if (typeof action.seed !== "string" || !action.seed) {
+        return [makeError(ErrorCode.INVALID_ACTION, "SET_SEED requires a non-empty seed string")];
+      }
       break;
   }
   return [];
@@ -137,6 +143,38 @@ function rejectAction(previousState, action, rawErrors) {
 }
 
 /**
+ * Apply SET_SEED: change the RNG seed and log the event.
+ * Allowed in any mode (exploration or combat).
+ *
+ * @param {object} state — cloned GameState (mutated in place)
+ * @param {{ type: "SET_SEED"; seed: string }} action
+ * @returns {{ ok: boolean, errors?: Array<{code:string,message:string}> }}
+ */
+function applySetSeed(state, action) {
+  const previousSeed = state.rng.seed;
+  const previousMode = state.rng.mode;
+
+  state.rng.seed = action.seed;
+  state.rng.mode = "seeded";
+  state.rng.lastRolls = [];
+
+  const eventId = `evt-${(state.log.events.length + 1).toString().padStart(4, "0")}`;
+  state.log.events.push({
+    id: eventId,
+    timestamp: state.timestamp,
+    type: "RNG_SEED_SET",
+    payload: {
+      previousSeed: previousSeed ?? null,
+      previousMode,
+      nextSeed: action.seed,
+      mode: "seeded",
+    },
+  });
+
+  return { ok: true };
+}
+
+/**
  * Core state transition function.
  *
  * @param {object} previousState — current GameState
@@ -195,6 +233,9 @@ export function applyAction(previousState, declaredAction) {
       break;
     case "END_TURN":
       result = applyEndTurn(clone, declaredAction);
+      break;
+    case "SET_SEED":
+      result = applySetSeed(clone, declaredAction);
       break;
     default:
       return rejectAction(previousState, declaredAction, [

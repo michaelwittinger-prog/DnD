@@ -34,6 +34,7 @@ const selectedInfoEl = document.getElementById("selected-info");
 const initiativeListEl = document.getElementById("initiative-list");
 const eventLogEl = document.getElementById("event-log");
 const actionFeedbackEl = document.getElementById("action-feedback");
+const seedDisplayEl = document.getElementById("seed-display");
 
 // ── Render ──────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ function render() {
   renderSelectedInfo();
   renderInitiativeOrder();
   renderEventLog();
+  renderSeedDisplay();
   updateButtonStates();
 }
 
@@ -132,10 +134,20 @@ function formatEventDetail(evt) {
       return p.order.map((o) => `${o.entityId}:${o.roll}`).join(", ");
     case "TURN_ENDED":
       return `${p.entityId}→${p.nextEntityId} r${p.round}`;
+    case "RNG_SEED_SET":
+      return `seed=${p.nextSeed}`;
     case "ACTION_REJECTED":
       return p.reasons?.[0] || "rejected";
     default:
       return JSON.stringify(p).slice(0, 60);
+  }
+}
+
+function renderSeedDisplay() {
+  if (seedDisplayEl) {
+    const seed = gameState.rng.seed || "(none)";
+    const mode = gameState.rng.mode;
+    seedDisplayEl.textContent = `${mode}: ${seed}`;
   }
 }
 
@@ -208,5 +220,5 @@ initInputController({
 // Initial render
 render();
 
-console.log("MIR 2.1 — Tabletop Engine UI loaded");
+console.log("MIR 2.2 — Tabletop Engine UI loaded");
 console.log("State:", gameState.map.name, `${gameState.map.grid.size.width}×${gameState.map.grid.size.height}`);

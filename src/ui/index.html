@@ -6,14 +6,8 @@
   <title>MIR — Tabletop Engine</title>
   <link rel="stylesheet" href="/src/ui/styles.css">
 
-  <!-- Redirect Node-only validateGameState to browser shim -->
-  <script type="importmap">
-  {
-    "imports": {
-      "/src/state/validateGameState.mjs": "/src/ui/validateShim.mjs"
-    }
-  }
-  </script>
+  <!-- MIR 2.2: No importmap needed. Schema validation uses pre-compiled
+       standalone module (zero runtime deps, works in Node and browser). -->
 </head>
 <body>
   <div id="app">
@@ -40,6 +34,15 @@
           <button id="btn-end-turn">⏭ End Turn</button>
           <button id="btn-attack">🗡 Attack Target</button>
           <div id="action-feedback"></div>
+        </section>
+
+        <section id="section-seed">
+          <h2>RNG Seed</h2>
+          <div id="seed-display"></div>
+          <div class="seed-controls">
+            <input id="seed-input" type="text" placeholder="Enter seed…" />
+            <button id="btn-set-seed">Set</button>
+          </div>
         </section>
 
         <section id="section-initiative">

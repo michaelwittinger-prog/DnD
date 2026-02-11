@@ -14,6 +14,8 @@
     "ai:response:validate": "node validate_ai_gm_response.js",
     "gate": "node gatekeeper.js",
     "mir:validate": "node src/state/validateGameState.mjs",
+    "mir:compile-schemas": "node scripts/compile-schemas.mjs",
+    "test:engine": "node tests/engine_test.mjs",
     "test": "npm run validate && npm run smoke && npm run invariants && npm run fixtures",
     "check": "node scripts/smoke-check.mjs",
     "turn": "node src/pipeline/runTurn.mjs && node scripts/sync-state.mjs",

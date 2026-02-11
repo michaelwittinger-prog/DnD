@@ -120,6 +120,23 @@ export function initInputController({ canvas, cellPx, getState, dispatch, onSele
     });
   }
 
+  // ── Set Seed button ───────────────────────────────────────────────
+  const btnSetSeed = document.getElementById("btn-set-seed");
+  const seedInput = document.getElementById("seed-input");
+  if (btnSetSeed && seedInput) {
+    const applySeed = () => {
+      const val = seedInput.value.trim();
+      if (val) {
+        dispatch({ type: "SET_SEED", seed: val });
+        seedInput.value = "";
+      }
+    };
+    btnSetSeed.addEventListener("click", applySeed);
+    seedInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") applySeed();
+    });
+  }
+
   // ── Attack button ─────────────────────────────────────────────────
   const btnAttack = document.getElementById("btn-attack");
   if (btnAttack) {

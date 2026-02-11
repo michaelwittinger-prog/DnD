@@ -35,10 +35,18 @@ The AI never writes directly to GameState. It proposes changes. The engine valid
 
 | Layer | What it checks | Tool |
 |-------|---------------|------|
-| **Schema validation** | Structure: types, required fields, value ranges, formats | Ajv against `mir_gamestate.schema.json` |
-| **Invariant validation** | Logic: unique ids, positions in bounds, combat consistency, HP bounds | `validateInvariants()` in `src/state/validateGameState.mjs` |
+| **Schema validation** | Structure: types, required fields, value ranges, formats | Pre-compiled standalone validator (zero runtime deps) |
+| **Invariant validation** | Logic: unique ids, positions in bounds, combat consistency, HP bounds | `validateInvariants()` in `src/state/validation/invariants.mjs` |
 
 Both layers must pass for a state to be considered valid. Schema validation is fast and generic. Invariant validation is game-specific and catches semantic errors that structural validation cannot.
+
+### Isomorphic Validation (MIR 2.2)
+
+As of MIR 2.2, schema validation uses a **pre-compiled standalone validator** (`src/state/validation/compiledValidate.mjs`) with zero runtime dependencies. This module works identically in Node and the browser — no importmap shims, no Ajv at runtime.
+
+- **Compile**: `node scripts/compile-schemas.mjs` — run whenever schemas change
+- **Canonical module**: `src/state/validation/index.mjs` — exports `validateGameState()`, `validateInvariants()`, `validateAll()`
+- Old files (`src/state/validateGameState.mjs`, `src/ui/validateShim.mjs`) are kept as deprecated re-exports
 
 ## File Map
 
@@ -61,6 +69,23 @@ src/engine/
   rng.mjs                     — Deterministic PRNG
   errors.mjs                  — Structured error codes
 src/state/
-  validateGameState.mjs       — Schema + invariant validator
+  validateGameState.mjs       — DEPRECATED: re-exports from validation/index.mjs
   exampleStates.mjs           — Example states for testing
+  validation/
+    index.mjs                 — Unified validation: validateGameState, validateInvariants, validateAll
+    invariants.mjs            — 25 game-rule invariant checks
+    compiledValidate.mjs      — AUTO-GENERATED standalone schema validator (zero deps)
+scripts/
+  compile-schemas.mjs         — Pre-compiles schemas into compiledValidate.mjs
+src/ui/
+  index.html                  — Browser UI shell
+  main.mjs                    — UI entry point (wires engine + renderers + input)
+  inputController.mjs         — Input handler (dispatches DeclaredActions)
+  renderGrid.mjs              — Grid renderer
+  renderTokens.mjs            — Token renderer
+  styles.css                  — UI styles
+  validateShim.mjs            — DEPRECATED: re-exports from validation/index.mjs
+  serve.mjs                   — Dev server
+tests/
+  engine_test.mjs             — 95 engine contract tests (MIR 1.4 + 2.2)
 ```
