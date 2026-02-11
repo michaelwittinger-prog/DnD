@@ -10,6 +10,7 @@
 
 import { ErrorCode, makeError } from "./errors.mjs";
 import { rollD20 } from "./rng.mjs";
+import { findNextLivingEntity } from "./combatEnd.mjs";
 
 /**
  * Roll initiative and transition to combat mode.
@@ -86,11 +87,16 @@ export function applyEndTurn(state, action) {
 
   const order = state.combat.initiativeOrder;
   const idx = order.indexOf(action.entityId);
-  const nextIdx = (idx + 1) % order.length;
+  const rawNextIdx = (idx + 1) % order.length;
+
+  // Skip dead entities in initiative order
+  const next = findNextLivingEntity(state, rawNextIdx, order.length);
+  const nextIdx = next ? next.index : rawNextIdx;
   state.combat.activeEntityId = order[nextIdx];
 
-  // If we wrapped around, advance the round
-  if (nextIdx === 0) {
+  // If we wrapped around (past index 0), advance the round
+  const wrapped = next ? next.wrapped : (rawNextIdx === 0);
+  if (rawNextIdx === 0 || wrapped) {
     state.combat.round += 1;
   }
 

@@ -22,6 +22,7 @@ import { ErrorCode, makeError } from "./errors.mjs";
 import { applyMove } from "./movement.mjs";
 import { applyAttack } from "./attack.mjs";
 import { applyRollInitiative, applyEndTurn } from "./initiative.mjs";
+import { checkCombatEnd } from "./combatEnd.mjs";
 
 /**
  * @typedef {
@@ -245,6 +246,11 @@ export function applyAction(previousState, declaredAction) {
 
   if (!result.ok) {
     return rejectAction(previousState, declaredAction, result.errors);
+  }
+
+  // 4b. Check if combat should end (after ATTACK kills last enemy, etc.)
+  if (clone.combat.mode === "combat") {
+    checkCombatEnd(clone);
   }
 
   // 5. Validate invariants on resulting state
