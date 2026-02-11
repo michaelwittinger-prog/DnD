@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/mir_gamestate.schema.json",
+  "title": "MIR GameState",
+  "description": "Canonical game state for Make It Real. Represents the complete tabletop reality at a point in time. Structure and validation only — no business logic.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "campaignId",
+    "sessionId",
+    "timestamp",
+    "rng",
+    "map",
+    "entities",
+    "combat",
+    "log",
+    "ui"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of this schema. Example: 0.1.0"
+    },
+    "campaignId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when this state was last persisted."
+    },
+    "rng": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "seed", "lastRolls"],
+      "properties": {
+        "mode": { "enum": ["manual", "seeded"] },
+        "seed": {
+          "type": ["string", "null"],
+          "description": "Seed string for seeded mode. Null when mode is manual."
+        },
+        "lastRolls": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "max", "label"],
+            "properties": {
+              "value": { "type": "integer", "minimum": 1 },
+              "max": { "type": "integer", "minimum": 1 },
+              "label": { "type": "string" }
+            }
+          },
+          "description": "Last N dice rolls for audit trail. Newest first."
+        }
+      }
+    },
+    "map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "grid", "terrain", "fogOfWarEnabled"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "grid": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "size", "cellSize"],
+          "properties": {
+            "type": { "enum": ["square"] },
+            "size": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["width", "height"],
+              "properties": {
+                "width": { "type": "integer", "minimum": 1, "maximum": 200 },
+                "height": { "type": "integer", "minimum": 1, "maximum": 200 }
+              }
+            },
+            "cellSize": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Physical cell size in game units (e.g. 5 for 5ft squares)."
+            }
+          }
+        },
+        "terrain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "terrain"],
+            "properties": {
+              "x": { "type": "integer", "minimum": 0 },
+              "y": { "type": "integer", "minimum": 0 },
+              "terrain": { "enum": ["open", "blocked", "difficult", "water", "pit"] }
+            }
+          },
+          "description": "Sparse list of non-default terrain tiles. Cells not listed are implicitly 'open'."
+        },
+        "fogOfWarEnabled": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["players", "npcs", "objects"],
+      "properties": {
+        "players": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entity" }
+        },
+        "npcs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entity" }
+        },
+        "objects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entity" }
+        }
+      }
+    },
+    "combat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "round", "activeEntityId", "initiativeOrder"],
+      "properties": {
+        "mode": { "enum": ["exploration", "combat"] },
+        "round": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Current combat round. 0 in exploration mode."
+        },
+        "activeEntityId": {
+          "type": ["string", "null"],
+          "description": "Entity whose turn it is. Null in exploration mode."
+        },
+        "initiativeOrder": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Ordered list of entity ids for turn sequence. Empty in exploration mode."
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["events"],
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "timestamp", "type", "payload"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "timestamp": { "type": "string", "format": "date-time" },
+              "type": { "type": "string", "minLength": 1 },
+              "payload": {
+                "type": "object",
+                "description": "Event-specific data. Structure varies by type."
+              }
+            }
+          }
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selectedEntityId", "hoveredCell"],
+      "properties": {
+        "selectedEntityId": {
+          "type": ["string", "null"]
+        },
+        "hoveredCell": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["x", "y"],
+              "properties": {
+                "x": { "type": "integer", "minimum": 0 },
+                "y": { "type": "integer", "minimum": 0 }
+              }
+            },
+            { "type": "null" }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "position",
+        "size",
+        "stats",
+        "conditions",
+        "inventory",
+        "token",
+        "controller"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": ["player", "npc", "object"]
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "integer", "minimum": 0 },
+            "y": { "type": "integer", "minimum": 0 },
+            "facing": {
+              "enum": ["N", "NE", "E", "SE", "S", "SW", "W", "NW", null],
+              "default": null
+            }
+          }
+        },
+        "size": {
+          "enum": ["S", "M", "L"]
+        },
+        "stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hpCurrent", "hpMax", "ac", "movementSpeed"],
+          "properties": {
+            "hpCurrent": { "type": "integer", "minimum": 0 },
+            "hpMax": { "type": "integer", "minimum": 1 },
+            "ac": { "type": "integer", "minimum": 0 },
+            "movementSpeed": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Movement in cells per turn."
+            }
+          }
+        },
+        "conditions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Free-form condition strings. Each must be non-empty."
+        },
+        "inventory": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name", "qty"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "name": { "type": "string", "minLength": 1 },
+              "qty": { "type": "integer", "minimum": 0 },
+              "tags": {
+                "type": "array",
+                "items": { "type": "string", "minLength": 1 },
+                "default": []
+              }
+            }
+          }
+        },
+        "token": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["style", "spriteKey"],
+          "properties": {
+            "style": { "enum": ["standee", "mini", "pawn"] },
+            "spriteKey": {
+              "type": ["string", "null"],
+              "description": "Reference to sprite asset. Null for unstyled tokens."
+            }
+          }
+        },
+        "controller": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "playerId"],
+          "properties": {
+            "type": { "enum": ["human", "ai"] },
+            "playerId": {
+              "type": ["string", "null"],
+              "description": "Human player id. Null for AI-controlled entities."
+            }
+          }
+        }
+      }
+    }
+  }
+}

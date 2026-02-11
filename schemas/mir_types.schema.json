@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/mir_types.schema.json",
+  "title": "MIR Shared Type Definitions",
+  "description": "Reusable type definitions for the Make It Real game state model.",
+  "$defs": {
+    "entityId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for any entity (player, npc, object)."
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "facing": {
+          "enum": ["N", "NE", "E", "SE", "S", "SW", "W", "NW", null],
+          "default": null,
+          "description": "Optional facing direction. Null means no facing tracked."
+        }
+      }
+    },
+    "entityKind": {
+      "enum": ["player", "npc", "object"],
+      "description": "Discriminator for entity type."
+    },
+    "entitySize": {
+      "enum": ["S", "M", "L"],
+      "description": "Token footprint size. S=small, M=medium (1 cell), L=large (2x2)."
+    },
+    "controllerType": {
+      "enum": ["human", "ai"],
+      "description": "Who controls this entity."
+    },
+    "tokenStyle": {
+      "enum": ["standee", "mini", "pawn"],
+      "description": "Physical token representation on the table."
+    },
+    "combatMode": {
+      "enum": ["exploration", "combat"],
+      "description": "Current game phase."
+    },
+    "rngMode": {
+      "enum": ["manual", "seeded"],
+      "description": "How dice rolls are resolved."
+    },
+    "terrainType": {
+      "enum": ["open", "blocked", "difficult", "water", "pit"],
+      "description": "Terrain classification for a cell."
+    },
+    "inventoryItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "qty"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "qty": { "type": "integer", "minimum": 0 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "default": []
+        }
+      }
+    },
+    "logEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "timestamp", "type", "payload"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "minLength": 1 },
+        "payload": { "type": "object" }
+      }
+    },
+    "terrainTile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "terrain"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "terrain": { "$ref": "#/$defs/terrainType" }
+      }
+    }
+  }
+}
