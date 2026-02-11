@@ -57,6 +57,7 @@ only proposes actions that the engine validates and executes. See `docs/mir_ai_i
 - `src/ai/aiPromptTemplate.mjs` — builds sanitized prompt (no RNG seed exposed)
 - `src/ai/aiActionParser.mjs` — safety layer: strict JSON parse, type whitelist, field stripping
 - `src/ai/aiClient.mjs` — orchestrates AI→parser→engine flow (API + mock modes)
+- `src/server/aiBridge.mjs` — local HTTP bridge (MIR 3.3): keeps API key server-side, rate limiting, CORS
 
 ## File Map
 
@@ -76,6 +77,8 @@ src/ai/
   aiPromptTemplate.mjs        — Prompt builder (sanitized state + action schema)
   aiActionParser.mjs           — Safety layer: JSON parse, type whitelist, field strip
   aiClient.mjs                 — AI proposal orchestrator (API + mock modes)
+src/server/
+  aiBridge.mjs                 — Local AI bridge server (MIR 3.3, port 3002)
 src/engine/
   applyAction.mjs             — Core state transition function
   movement.mjs                — MOVE handler
@@ -103,4 +106,7 @@ src/ui/
   serve.mjs                   — Dev server
 tests/
   engine_test.mjs             — 95 engine contract tests (MIR 1.4 + 2.2)
+  ai_parser_test.mjs          — 82 parser contract tests (MIR 3.2)
+  ai_prompt_test.mjs          — 50 prompt snapshot tests (MIR 3.2)
+  ai_bridge_test.mjs          — 78 bridge unit tests (MIR 3.3)
 ```

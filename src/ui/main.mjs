@@ -1,5 +1,5 @@
 /**
- * main.mjs — MIR 3.1 Tabletop Engine UI entry point.
+ * main.mjs — MIR 3.3 Tabletop Engine UI entry point.
  *
  * Wires GameState + engine + renderers + input controller.
  * All state changes flow through applyAction. The UI never
@@ -203,11 +203,38 @@ function showFeedback(msg, success) {
 const aiFeedbackEl = document.getElementById("ai-feedback");
 const aiDebugEl = document.getElementById("ai-debug");
 
-function onAiPropose(playerInput) {
+const AI_BRIDGE_URL = "http://localhost:3002/api/propose";
+
+async function onAiPropose(playerInput) {
   console.log(`[AI] Input: "${playerInput}"`);
   showAiFeedback("⏳ Thinking…", "pending");
 
-  const result = proposeActionMock(gameState, playerInput);
+  let result;
+  let usedBridge = false;
+
+  // Try bridge first, fall back to local mock
+  try {
+    const resp = await fetch(AI_BRIDGE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ inputText: playerInput, state: gameState, mode: "real" }),
+    });
+    const data = await resp.json();
+    usedBridge = true;
+    result = {
+      ok: data.ok,
+      action: data.action,
+      reason: data.errors?.[0],
+      rawText: JSON.stringify(data.action ?? data.errors),
+      durationMs: data.durationMs ?? 0,
+      mode: data.mode || "bridge",
+    };
+    console.log(`[AI] Bridge response: ok=${data.ok} mode=${data.mode}`);
+  } catch (err) {
+    // Bridge unreachable — fall back to local mock
+    console.log(`[AI] Bridge unreachable (${err.message}), using local mock`);
+    result = proposeActionMock(gameState, playerInput);
+  }
 
   console.log(`[AI] Raw:   ${result.rawText}`);
   console.log(`[AI] Parse: ok=${result.ok}${result.reason ? " — " + result.reason : ""}`);
@@ -219,13 +246,15 @@ function onAiPropose(playerInput) {
       ok: result.ok,
       action: result.action ?? null,
       reason: result.reason ?? null,
-      rawText: result.rawText,
       durationMs: result.durationMs,
+      mode: result.mode,
+      bridge: usedBridge,
     }, null, 2);
   }
 
   if (!result.ok) {
-    showAiFeedback(`✗ ${result.reason}`, "error");
+    const modeTag = result.mode || "mock";
+    showAiFeedback(`[${modeTag}] ✗ ${result.reason}`, "error");
     return;
   }
 
@@ -276,5 +305,5 @@ initInputController({
 // Initial render
 render();
 
-console.log("MIR 3.1 — Tabletop Engine UI loaded");
+console.log("MIR 3.3 — Tabletop Engine UI loaded");
 console.log("State:", gameState.map.name, `${gameState.map.grid.size.width}×${gameState.map.grid.size.height}`);

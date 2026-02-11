@@ -254,15 +254,83 @@ The client sends `response_format: { type: "json_object" }` to the API,
 which forces the model to output valid JSON. Combined with the parser's
 strict validation, this provides two layers of JSON enforcement.
 
-## Browser Strategy
+## AI Bridge Server (MIR 3.3)
 
-The browser UI uses `proposeActionMock()` — a keyword-based local parser
-that runs entirely in the browser with no API calls.
+The browser UI connects to a local Node bridge server at `http://localhost:3002`
+that keeps the API key server-side.
 
-**Future plan:** A small Node endpoint (e.g., `POST /api/ai/propose`) will
-accept `{ state, playerInput }` and return `AiProposalResult`. The browser
-will call this endpoint instead of the mock. This endpoint is **not yet built** —
-the mock is sufficient for UI development and testing.
+### Running
+
+```bash
+# Terminal 1: Start AI bridge
+npm run ai:bridge
+
+# Terminal 2: Start UI server
+npm run ui
+
+# Open: http://localhost:3001
+```
+
+When the bridge is running, the UI sends `POST /api/propose` to it.
+If the bridge is unreachable, the UI falls back to the local mock silently.
+
+### Request / Response
+
+**Request:**
+```json
+POST /api/propose
+{
+  "inputText": "attack the barkeep",
+  "state": { ... },
+  "mode": "real"
+}
+```
+
+**Response (success):**
+```json
+{
+  "ok": true,
+  "action": { "type": "ATTACK", "attackerId": "pc-seren", "targetId": "npc-barkeep-01" },
+  "mode": "real",
+  "durationMs": 1234
+}
+```
+
+**Response (failure):**
+```json
+{
+  "ok": false,
+  "errors": ["Mock parser could not understand: \"do a backflip\""],
+  "mode": "mock",
+  "durationMs": 1
+}
+```
+
+### Security
+
+| Measure | Detail |
+|---------|--------|
+| API key isolation | `OPENAI_API_KEY` only loaded server-side, never sent to browser |
+| CORS | Only `localhost` / `127.0.0.1` origins accepted |
+| Payload size | 200KB max request body |
+| Rate limiting | 30 requests per 10 min per IP, returns 429 |
+| Parser gate | Server re-validates through `parseAiAction` even after client parse |
+| No raw text | Raw AI response not included in API response |
+
+### Fallback Behavior
+
+| Condition | Result |
+|-----------|--------|
+| Bridge running + API key set + mode="real" | Real OpenAI API |
+| Bridge running + no API key + mode="real" | Falls back to mock on bridge |
+| Bridge not running | UI falls back to local mock (no error) |
+| Rate limit exceeded | 429 response, UI shows error |
+
+## Browser Strategy (Future)
+
+The current bridge is a local development tool. For production, the same
+endpoint pattern could be deployed as a hosted microservice with proper
+auth. The browser never needs the API key.
 
 ## Logging and Redaction
 
