@@ -2,12 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/schemas/mir_types.schema.json",
   "title": "MIR Shared Type Definitions",
-  "description": "Reusable type definitions for the Make It Real game state model.",
+  "description": "Reusable type definitions referenced by mir_gamestate.schema.json.",
   "$defs": {
     "entityId": {
       "type": "string",
       "minLength": 1,
-      "description": "Unique identifier for any entity (player, npc, object)."
+      "description": "Unique identifier for any entity."
     },
     "position": {
       "type": "object",
@@ -17,9 +17,9 @@
         "x": { "type": "integer", "minimum": 0 },
         "y": { "type": "integer", "minimum": 0 },
         "facing": {
-          "enum": ["N", "NE", "E", "SE", "S", "SW", "W", "NW", null],
+          "enum": ["N", "E", "S", "W", null],
           "default": null,
-          "description": "Optional facing direction. Null means no facing tracked."
+          "description": "Optional facing direction (4-way). Null means no facing tracked."
         }
       }
     },
@@ -37,7 +37,7 @@
     },
     "tokenStyle": {
       "enum": ["standee", "mini", "pawn"],
-      "description": "Physical token representation on the table."
+      "description": "Physical token representation."
     },
     "combatMode": {
       "enum": ["exploration", "combat"],
@@ -47,22 +47,59 @@
       "enum": ["manual", "seeded"],
       "description": "How dice rolls are resolved."
     },
-    "terrainType": {
-      "enum": ["open", "blocked", "difficult", "water", "pit"],
-      "description": "Terrain classification for a cell."
+    "roll": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "timestamp", "formula", "resultTotal"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "formula": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Dice formula, e.g. '1d20+5', '2d6'."
+        },
+        "resultTotal": { "type": "integer" },
+        "breakdown": {
+          "type": "string",
+          "description": "Optional human-readable breakdown, e.g. '[14]+5=19'."
+        },
+        "source": {
+          "type": "string",
+          "description": "Optional label for what this roll was for, e.g. 'Seren initiative'."
+        }
+      }
+    },
+    "terrainTile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "type", "blocksMovement"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Terrain classification, e.g. 'open', 'blocked', 'difficult', 'water', 'pit'."
+        },
+        "blocksMovement": { "type": "boolean" },
+        "blocksVision": {
+          "type": "boolean",
+          "description": "Optional. Whether this tile blocks line of sight."
+        }
+      }
     },
     "inventoryItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "qty"],
+      "required": ["id", "name", "qty", "tags"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
-        "qty": { "type": "integer", "minimum": 0 },
+        "qty": { "type": "integer", "minimum": 1 },
         "tags": {
           "type": "array",
-          "items": { "type": "string", "minLength": 1 },
-          "default": []
+          "items": { "type": "string", "minLength": 1 }
         }
       }
     },
@@ -74,17 +111,81 @@
         "id": { "type": "string", "minLength": 1 },
         "timestamp": { "type": "string", "format": "date-time" },
         "type": { "type": "string", "minLength": 1 },
-        "payload": { "type": "object" }
+        "payload": {
+          "type": "object",
+          "description": "Event-specific data. JSON serializable, structure varies by type."
+        }
       }
     },
-    "terrainTile": {
+    "entity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["x", "y", "terrain"],
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "position",
+        "size",
+        "stats",
+        "conditions",
+        "inventory",
+        "token",
+        "controller"
+      ],
       "properties": {
-        "x": { "type": "integer", "minimum": 0 },
-        "y": { "type": "integer", "minimum": 0 },
-        "terrain": { "$ref": "#/$defs/terrainType" }
+        "id": { "$ref": "#/$defs/entityId" },
+        "kind": { "$ref": "#/$defs/entityKind" },
+        "name": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/position" },
+        "size": { "$ref": "#/$defs/entitySize" },
+        "stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["hpCurrent", "hpMax", "ac", "movementSpeed"],
+          "properties": {
+            "hpCurrent": { "type": "integer", "minimum": 0 },
+            "hpMax": { "type": "integer", "minimum": 1 },
+            "ac": { "type": "integer", "minimum": 0 },
+            "movementSpeed": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Movement in cells per turn."
+            }
+          }
+        },
+        "conditions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "Free-form condition strings. Each must be non-empty."
+        },
+        "inventory": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inventoryItem" }
+        },
+        "token": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["style", "spriteKey"],
+          "properties": {
+            "style": { "$ref": "#/$defs/tokenStyle" },
+            "spriteKey": {
+              "type": ["string", "null"],
+              "description": "Sprite asset reference. Null for unstyled tokens."
+            }
+          }
+        },
+        "controller": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "playerId"],
+          "properties": {
+            "type": { "$ref": "#/$defs/controllerType" },
+            "playerId": {
+              "type": ["string", "null"],
+              "description": "Human player id. Null for AI-controlled entities."
+            }
+          }
+        }
       }
     }
   }
