@@ -1,0 +1,40 @@
+{
+  "name": "ai-gm-rpg",
+  "version": "1.0.0",
+  "description": "Hybrid analog tabletop RPG with AI Game Master",
+  "main": "index.js",
+  "scripts": {
+    "dev:server": "node scripts/run-server.mjs",
+    "dev:client": "node scripts/run-client.mjs",
+    "validate": "node validate_game_state.js",
+    "smoke": "node smoke_mutation_test.js",
+    "invariants": "node check_invariants.js",
+    "fixtures": "node run_fixtures.js",
+    "ai:validate": "node validate_ai_output.js",
+    "ai:response:validate": "node validate_ai_gm_response.js",
+    "gate": "node gatekeeper.js",
+    "test": "npm run validate && npm run smoke && npm run invariants && npm run fixtures",
+    "check": "node scripts/smoke-check.mjs",
+    "turn": "node src/pipeline/runTurn.mjs && node scripts/sync-state.mjs",
+    "turn:bundle": "node src/pipeline/runTurn.mjs",
+    "replay": "node src/pipeline/replayTurn.mjs",
+    "replay:latest": "node src/pipeline/replayTurn.mjs --latest",
+    "api": "node src/server/localApiServer.mjs",
+    "dev": "node scripts/run-dev.mjs",
+    "dev:api": "node src/server/localApiServer.mjs",
+    "dev:viewer": "node scripts/run-viewer.mjs",
+    "view": "node scripts/run-viewer.mjs",
+    "view:sync": "node scripts/sync-state.mjs",
+    "viewer:install": "npm --prefix viewer install"
+  },
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "openai": "^6.21.0"
+  }
+}
