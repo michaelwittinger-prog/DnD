@@ -1,0 +1,254 @@
+{
+  "meta": {
+    "id": "open-field-duel",
+    "name": "Open Field Duel",
+    "description": "A quick duel on an open field. Minimal terrain, fast combat.",
+    "recommendedPlayers": 2,
+    "difficulty": "easy",
+    "tags": [
+      "combat",
+      "duel",
+      "quick"
+    ]
+  },
+  "initialState": {
+    "schemaVersion": "0.1.0",
+    "campaignId": "scenario",
+    "sessionId": "open-field-duel-001",
+    "timestamp": "2026-02-11T18:00:00Z",
+    "rng": {
+      "mode": "seeded",
+      "seed": "open-field-duel-seed",
+      "lastRolls": []
+    },
+    "map": {
+      "id": "map-field",
+      "name": "Open Field",
+      "grid": {
+        "type": "square",
+        "size": {
+          "width": 10,
+          "height": 8
+        },
+        "cellSize": 5
+      },
+      "terrain": [
+        {
+          "x": 0,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 9,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 0,
+          "y": 7,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 9,
+          "y": 7,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 4,
+          "y": 3,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 5,
+          "y": 3,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 4,
+          "y": 4,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 5,
+          "y": 4,
+          "type": "difficult",
+          "blocksMovement": false
+        }
+      ],
+      "fogOfWarEnabled": false
+    },
+    "entities": {
+      "players": [
+        {
+          "id": "pc-seren",
+          "kind": "player",
+          "name": "Seren Ashford",
+          "position": {
+            "x": 2,
+            "y": 3
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 28,
+            "hpMax": 28,
+            "ac": 16,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-longsword",
+              "name": "Longsword",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "melee"
+              ]
+            }
+          ],
+          "token": {
+            "style": "mini",
+            "spriteKey": "seren-paladin"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-seren"
+          }
+        },
+        {
+          "id": "pc-miri",
+          "kind": "player",
+          "name": "Miri Thistledown",
+          "position": {
+            "x": 2,
+            "y": 5
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 22,
+            "hpMax": 22,
+            "ac": 13,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-shortbow",
+              "name": "Shortbow",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "ranged"
+              ]
+            },
+            {
+              "id": "item-arrows",
+              "name": "Arrows",
+              "qty": 20,
+              "tags": [
+                "ammo"
+              ]
+            }
+          ],
+          "token": {
+            "style": "standee",
+            "spriteKey": "miri-ranger"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-miri"
+          }
+        }
+      ],
+      "npcs": [
+        {
+          "id": "npc-knight",
+          "kind": "npc",
+          "name": "Dark Knight",
+          "position": {
+            "x": 7,
+            "y": 3
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 20,
+            "hpMax": 20,
+            "ac": 15,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        },
+        {
+          "id": "npc-squire",
+          "kind": "npc",
+          "name": "Squire",
+          "position": {
+            "x": 7,
+            "y": 5
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 12,
+            "hpMax": 12,
+            "ac": 11,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        }
+      ],
+      "objects": []
+    },
+    "combat": {
+      "mode": "exploration",
+      "round": 0,
+      "activeEntityId": null,
+      "initiativeOrder": []
+    },
+    "log": {
+      "events": [
+        {
+          "id": "evt-s3-001",
+          "timestamp": "2026-02-11T18:00:00Z",
+          "type": "session_start",
+          "payload": {
+            "message": "Open Field Duel: Two sides face off across the muddy grass."
+          }
+        }
+      ]
+    },
+    "ui": {
+      "selectedEntityId": null,
+      "hoveredCell": null
+    }
+  },
+  "suggestedReplays": []
+}

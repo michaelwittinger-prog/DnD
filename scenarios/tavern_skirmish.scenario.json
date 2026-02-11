@@ -1,0 +1,292 @@
+{
+  "meta": {
+    "id": "tavern-skirmish",
+    "name": "Tavern Skirmish",
+    "description": "A goblin lurks in The Rusty Tankard. Walls and tables create tight quarters.",
+    "recommendedPlayers": 2,
+    "difficulty": "easy",
+    "tags": [
+      "combat",
+      "tavern",
+      "tutorial"
+    ]
+  },
+  "initialState": {
+    "schemaVersion": "0.1.0",
+    "campaignId": "scenario",
+    "sessionId": "tavern-skirmish-001",
+    "timestamp": "2026-02-11T18:00:00Z",
+    "rng": {
+      "mode": "seeded",
+      "seed": "tavern-skirmish-seed",
+      "lastRolls": []
+    },
+    "map": {
+      "id": "map-tavern",
+      "name": "The Rusty Tankard",
+      "grid": {
+        "type": "square",
+        "size": {
+          "width": 15,
+          "height": 10
+        },
+        "cellSize": 5
+      },
+      "terrain": [
+        {
+          "x": 3,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 7,
+          "y": 4,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 7,
+          "y": 5,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 8,
+          "y": 4,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 10,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 10,
+          "y": 1,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        }
+      ],
+      "fogOfWarEnabled": false
+    },
+    "entities": {
+      "players": [
+        {
+          "id": "pc-seren",
+          "kind": "player",
+          "name": "Seren Ashford",
+          "position": {
+            "x": 2,
+            "y": 3
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 22,
+            "hpMax": 28,
+            "ac": 16,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-longsword",
+              "name": "Longsword",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "melee"
+              ]
+            },
+            {
+              "id": "item-shield",
+              "name": "Shield",
+              "qty": 1,
+              "tags": [
+                "armor"
+              ]
+            }
+          ],
+          "token": {
+            "style": "mini",
+            "spriteKey": "seren-paladin"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-seren"
+          }
+        },
+        {
+          "id": "pc-miri",
+          "kind": "player",
+          "name": "Miri Thistledown",
+          "position": {
+            "x": 4,
+            "y": 6
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 18,
+            "hpMax": 22,
+            "ac": 13,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-shortbow",
+              "name": "Shortbow",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "ranged"
+              ]
+            },
+            {
+              "id": "item-arrows",
+              "name": "Arrows",
+              "qty": 20,
+              "tags": [
+                "ammo"
+              ]
+            }
+          ],
+          "token": {
+            "style": "standee",
+            "spriteKey": "miri-ranger"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-miri"
+          }
+        }
+      ],
+      "npcs": [
+        {
+          "id": "npc-barkeep",
+          "kind": "npc",
+          "name": "Old Haggard",
+          "position": {
+            "x": 6,
+            "y": 2
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 8,
+            "hpMax": 8,
+            "ac": 10,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        },
+        {
+          "id": "npc-goblin",
+          "kind": "npc",
+          "name": "Goblin Sneak",
+          "position": {
+            "x": 9,
+            "y": 5
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 10,
+            "hpMax": 12,
+            "ac": 13,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-table1",
+          "kind": "object",
+          "name": "Wooden Table",
+          "position": {
+            "x": 5,
+            "y": 4
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 15,
+            "hpMax": 15,
+            "ac": 5,
+            "movementSpeed": 0
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "pawn",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        }
+      ]
+    },
+    "combat": {
+      "mode": "exploration",
+      "round": 0,
+      "activeEntityId": null,
+      "initiativeOrder": []
+    },
+    "log": {
+      "events": [
+        {
+          "id": "evt-s1-001",
+          "timestamp": "2026-02-11T18:00:00Z",
+          "type": "session_start",
+          "payload": {
+            "message": "Tavern Skirmish: A goblin lurks in the shadows."
+          }
+        }
+      ]
+    },
+    "ui": {
+      "selectedEntityId": null,
+      "hoveredCell": null
+    }
+  },
+  "suggestedReplays": [
+    "combat_flow.replay.json"
+  ]
+}

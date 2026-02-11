@@ -1,0 +1,284 @@
+{
+  "meta": {
+    "id": "corridor-ambush",
+    "name": "Narrow Corridor Ambush",
+    "description": "A dungeon corridor with pillars forces careful movement. Two bandits wait in ambush.",
+    "recommendedPlayers": 2,
+    "difficulty": "medium",
+    "tags": [
+      "combat",
+      "dungeon",
+      "tactical"
+    ]
+  },
+  "initialState": {
+    "schemaVersion": "0.1.0",
+    "campaignId": "scenario",
+    "sessionId": "corridor-ambush-001",
+    "timestamp": "2026-02-11T18:00:00Z",
+    "rng": {
+      "mode": "seeded",
+      "seed": "corridor-ambush-seed",
+      "lastRolls": []
+    },
+    "map": {
+      "id": "map-corridor",
+      "name": "Dungeon Corridor",
+      "grid": {
+        "type": "square",
+        "size": {
+          "width": 12,
+          "height": 5
+        },
+        "cellSize": 5
+      },
+      "terrain": [
+        {
+          "x": 0,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 0,
+          "y": 4,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": false
+        },
+        {
+          "x": 3,
+          "y": 3,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": false
+        },
+        {
+          "x": 6,
+          "y": 1,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": false
+        },
+        {
+          "x": 6,
+          "y": 3,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": false
+        },
+        {
+          "x": 9,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 9,
+          "y": 4,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 11,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 11,
+          "y": 4,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 4,
+          "y": 2,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 5,
+          "y": 2,
+          "type": "difficult",
+          "blocksMovement": false
+        }
+      ],
+      "fogOfWarEnabled": false
+    },
+    "entities": {
+      "players": [
+        {
+          "id": "pc-seren",
+          "kind": "player",
+          "name": "Seren Ashford",
+          "position": {
+            "x": 1,
+            "y": 2
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 22,
+            "hpMax": 28,
+            "ac": 16,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-longsword",
+              "name": "Longsword",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "melee"
+              ]
+            }
+          ],
+          "token": {
+            "style": "mini",
+            "spriteKey": "seren-paladin"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-seren"
+          }
+        },
+        {
+          "id": "pc-miri",
+          "kind": "player",
+          "name": "Miri Thistledown",
+          "position": {
+            "x": 1,
+            "y": 3
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 18,
+            "hpMax": 22,
+            "ac": 13,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-shortbow",
+              "name": "Shortbow",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "ranged"
+              ]
+            },
+            {
+              "id": "item-arrows",
+              "name": "Arrows",
+              "qty": 20,
+              "tags": [
+                "ammo"
+              ]
+            }
+          ],
+          "token": {
+            "style": "standee",
+            "spriteKey": "miri-ranger"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-miri"
+          }
+        }
+      ],
+      "npcs": [
+        {
+          "id": "npc-bandit-1",
+          "kind": "npc",
+          "name": "Bandit Thug",
+          "position": {
+            "x": 8,
+            "y": 1
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 14,
+            "hpMax": 14,
+            "ac": 12,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        },
+        {
+          "id": "npc-bandit-2",
+          "kind": "npc",
+          "name": "Bandit Archer",
+          "position": {
+            "x": 10,
+            "y": 2
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 10,
+            "hpMax": 10,
+            "ac": 11,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        }
+      ],
+      "objects": []
+    },
+    "combat": {
+      "mode": "exploration",
+      "round": 0,
+      "activeEntityId": null,
+      "initiativeOrder": []
+    },
+    "log": {
+      "events": [
+        {
+          "id": "evt-s2-001",
+          "timestamp": "2026-02-11T18:00:00Z",
+          "type": "session_start",
+          "payload": {
+            "message": "Corridor Ambush: Pillars line the narrow passage. Shadows shift ahead."
+          }
+        }
+      ]
+    },
+    "ui": {
+      "selectedEntityId": null,
+      "hoveredCell": null
+    }
+  },
+  "suggestedReplays": []
+}

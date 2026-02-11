@@ -399,6 +399,51 @@ function updateIndicators() {
   }
 }
 
+// ── Scenario Selector (MIR 4.2) ─────────────────────────────────────────
+
+const scenarioSelectEl = document.getElementById("scenario-select");
+const btnLoadScenario = document.getElementById("btn-load-scenario");
+
+const SCENARIO_FILES = [
+  "tavern_skirmish.scenario.json",
+  "corridor_ambush.scenario.json",
+  "open_field_duel.scenario.json",
+];
+
+function populateScenarioList() {
+  if (!scenarioSelectEl) return;
+  for (const name of SCENARIO_FILES) {
+    const opt = document.createElement("option");
+    opt.value = `/scenarios/${name}`;
+    opt.textContent = name.replace(".scenario.json", "").replace(/_/g, " ");
+    scenarioSelectEl.appendChild(opt);
+  }
+}
+
+btnLoadScenario?.addEventListener("click", async () => {
+  const url = scenarioSelectEl?.value;
+  if (!url) return;
+  if (replayStatusEl) replayStatusEl.textContent = "⏳ Loading scenario…";
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const bundle = await resp.json();
+    if (!bundle.initialState) throw new Error("Invalid scenario bundle");
+
+    loadState(bundle.initialState);
+    if (replayStatusEl) {
+      replayStatusEl.textContent = `✓ ${bundle.meta?.name || "Scenario"} loaded`;
+      replayStatusEl.className = "success";
+    }
+    console.log(`[MIR 4.2] Scenario loaded: ${bundle.meta?.name}`);
+  } catch (err) {
+    if (replayStatusEl) { replayStatusEl.textContent = `✗ ${err.message}`; replayStatusEl.className = "error"; }
+  }
+});
+
+populateScenarioList();
+
 // Demo encounter button
 document.getElementById("btn-demo-encounter")?.addEventListener("click", () => {
   loadState(demoEncounter);
