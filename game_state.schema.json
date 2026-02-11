@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/game_state.schema.json",
+  "title": "Game State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "meta",
+    "session",
+    "ruleset",
+    "timeline",
+    "world",
+    "map",
+    "entities",
+    "inventory",
+    "quests",
+    "flags",
+    "rng",
+    "logs"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "createdAt"],
+      "properties": {
+        "schemaVersion": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "source": { "type": "string" }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "status"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "paused", "complete"] },
+        "gm": { "type": "string" },
+        "players": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "ruleset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "edition"],
+      "properties": {
+        "system": { "type": "string" },
+        "edition": { "type": "string" },
+        "houseRules": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["currentTime", "turn"],
+      "properties": {
+        "currentTime": { "type": "string" },
+        "turn": { "type": "integer", "minimum": 0 },
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "timestamp": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "world": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "region": { "type": "string" },
+        "locations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "dimensions"],
+      "properties": {
+        "name": { "type": "string" },
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "tiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y", "terrain"],
+            "properties": {
+              "x": { "type": "integer", "minimum": 0 },
+              "y": { "type": "integer", "minimum": 0 },
+              "terrain": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "stats": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "position": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["x", "y"],
+            "properties": {
+              "x": { "type": "integer" },
+              "y": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["items"],
+      "properties": {
+        "gold": { "type": "integer", "minimum": 0 },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "name", "quantity"],
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "quantity": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "quests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "complete", "failed"] },
+          "objectives": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "flags": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["boolean", "string", "number", "null"]
+      }
+    },
+    "rng": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "lastRoll"],
+      "properties": {
+        "seed": { "type": "integer" },
+        "lastRoll": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sides", "result"],
+          "properties": {
+            "sides": { "type": "integer", "minimum": 2 },
+            "result": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "combat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active", "combat_id", "round", "initiative_order", "active_index", "started_at_iso"],
+      "properties": {
+        "active": { "type": "boolean" },
+        "combat_id": { "type": "string", "minLength": 1 },
+        "round": { "type": "integer", "minimum": 1 },
+        "initiative_order": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 2
+        },
+        "active_index": { "type": "integer", "minimum": 0 },
+        "started_at_iso": { "type": "string", "format": "date-time" }
+      }
+    },
+    "logs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "message", "level", "timestamp"],
+        "properties": {
+          "id": { "type": "string" },
+          "message": { "type": "string" },
+          "level": { "type": "string", "enum": ["info", "warning", "error"] },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
