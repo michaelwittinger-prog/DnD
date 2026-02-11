@@ -48,6 +48,16 @@ As of MIR 2.2, schema validation uses a **pre-compiled standalone validator** (`
 - **Canonical module**: `src/state/validation/index.mjs` — exports `validateGameState()`, `validateInvariants()`, `validateAll()`
 - Old files (`src/state/validateGameState.mjs`, `src/ui/validateShim.mjs`) are kept as deprecated re-exports
 
+### AI Integration (MIR 3.1)
+
+As of MIR 3.1, the system includes an AI proposal layer that converts natural language
+player commands into structured DeclaredAction objects. The AI cannot mutate state — it
+only proposes actions that the engine validates and executes. See `docs/mir_ai_integration.md`.
+
+- `src/ai/aiPromptTemplate.mjs` — builds sanitized prompt (no RNG seed exposed)
+- `src/ai/aiActionParser.mjs` — safety layer: strict JSON parse, type whitelist, field stripping
+- `src/ai/aiClient.mjs` — orchestrates AI→parser→engine flow (API + mock modes)
+
 ## File Map
 
 ```
@@ -61,6 +71,11 @@ docs/
   mir_action_model.md         — DeclaredAction definitions (MIR 1.4)
   mir_event_model.md          — EngineEvent definitions (MIR 1.4)
   mir_engine_contract.md      — Engine contract and determinism guarantee (MIR 1.4)
+  mir_ai_integration.md       — AI proposal flow and safety layer (MIR 3.1)
+src/ai/
+  aiPromptTemplate.mjs        — Prompt builder (sanitized state + action schema)
+  aiActionParser.mjs           — Safety layer: JSON parse, type whitelist, field strip
+  aiClient.mjs                 — AI proposal orchestrator (API + mock modes)
 src/engine/
   applyAction.mjs             — Core state transition function
   movement.mjs                — MOVE handler

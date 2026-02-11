@@ -66,7 +66,7 @@ function findEntity(state, id) {
  * @param {(action: object) => void} opts.dispatch — sends DeclaredAction to engine
  * @param {(id: string|null) => void} opts.onSelect — UI selection callback
  */
-export function initInputController({ canvas, cellPx, getState, dispatch, onSelect }) {
+export function initInputController({ canvas, cellPx, getState, dispatch, onSelect, onAiPropose }) {
   // ── Canvas click ──────────────────────────────────────────────────
   canvas.addEventListener("click", (e) => {
     const rect = canvas.getBoundingClientRect();
@@ -134,6 +134,23 @@ export function initInputController({ canvas, cellPx, getState, dispatch, onSele
     btnSetSeed.addEventListener("click", applySeed);
     seedInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") applySeed();
+    });
+  }
+
+  // ── AI Propose button ─────────────────────────────────────────────
+  const btnAiPropose = document.getElementById("btn-ai-propose");
+  const aiInput = document.getElementById("ai-input");
+  if (btnAiPropose && aiInput && onAiPropose) {
+    const submitAi = () => {
+      const val = aiInput.value.trim();
+      if (val) {
+        onAiPropose(val);
+        aiInput.value = "";
+      }
+    };
+    btnAiPropose.addEventListener("click", submitAi);
+    aiInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") submitAi();
     });
   }
 

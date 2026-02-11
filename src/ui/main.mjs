@@ -1,5 +1,5 @@
 /**
- * main.mjs — MIR 2.1 Tabletop Engine UI entry point.
+ * main.mjs — MIR 3.1 Tabletop Engine UI entry point.
  *
  * Wires GameState + engine + renderers + input controller.
  * All state changes flow through applyAction. The UI never
@@ -7,6 +7,7 @@
  */
 
 import { applyAction } from "../engine/applyAction.mjs";
+import { proposeActionMock } from "../ai/aiClient.mjs";
 import { explorationExample } from "../state/exampleStates.mjs";
 import { renderGrid } from "./renderGrid.mjs";
 import { renderTokens } from "./renderTokens.mjs";
@@ -197,6 +198,59 @@ function showFeedback(msg, success) {
   actionFeedbackEl.className = success ? "success" : "";
 }
 
+// ── AI Proposal ─────────────────────────────────────────────────────────
+
+const aiFeedbackEl = document.getElementById("ai-feedback");
+const aiDebugEl = document.getElementById("ai-debug");
+
+function onAiPropose(playerInput) {
+  console.log(`[AI] Input: "${playerInput}"`);
+  showAiFeedback("⏳ Thinking…", "pending");
+
+  const result = proposeActionMock(gameState, playerInput);
+
+  console.log(`[AI] Raw:   ${result.rawText}`);
+  console.log(`[AI] Parse: ok=${result.ok}${result.reason ? " — " + result.reason : ""}`);
+
+  // Update debug panel
+  if (aiDebugEl) {
+    aiDebugEl.textContent = JSON.stringify({
+      input: playerInput,
+      ok: result.ok,
+      action: result.action ?? null,
+      reason: result.reason ?? null,
+      rawText: result.rawText,
+      durationMs: result.durationMs,
+    }, null, 2);
+  }
+
+  if (!result.ok) {
+    showAiFeedback(`✗ ${result.reason}`, "error");
+    return;
+  }
+
+  // Pass validated action to engine
+  showAiFeedback(`→ ${result.action.type}`, "pending");
+  dispatch(result.action);
+
+  // Update AI feedback based on engine result
+  const lastEvent = gameState.log.events[gameState.log.events.length - 1];
+  if (lastEvent?.type === "ACTION_REJECTED") {
+    showAiFeedback(`✗ Engine rejected: ${lastEvent.payload.reasons?.[0] || "unknown"}`, "error");
+    console.log(`[AI] Engine: ✗ ACTION_REJECTED`);
+  } else {
+    showAiFeedback(`✓ ${lastEvent?.type || "OK"} (${result.durationMs}ms)`, "success");
+    console.log(`[AI] Engine: ✓ ${lastEvent?.type}`);
+  }
+}
+
+function showAiFeedback(msg, className) {
+  if (aiFeedbackEl) {
+    aiFeedbackEl.textContent = msg;
+    aiFeedbackEl.className = className || "";
+  }
+}
+
 // ── Selection (UI-only state change) ────────────────────────────────────
 
 function onSelect(entityId) {
@@ -215,10 +269,11 @@ initInputController({
   getState: () => gameState,
   dispatch,
   onSelect,
+  onAiPropose,
 });
 
 // Initial render
 render();
 
-console.log("MIR 2.2 — Tabletop Engine UI loaded");
+console.log("MIR 3.1 — Tabletop Engine UI loaded");
 console.log("State:", gameState.map.name, `${gameState.map.grid.size.width}×${gameState.map.grid.size.height}`);
