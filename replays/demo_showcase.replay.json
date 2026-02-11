@@ -1,0 +1,380 @@
+{
+  "meta": {
+    "id": "demo-showcase",
+    "createdAt": "2026-02-11T18:00:00Z",
+    "schemaVersion": "0.1.0",
+    "engineVersion": "1.4",
+    "notes": "MIR 4.3 Demo Showcase: move, initiative, attack, end turn, rejected move, valid move"
+  },
+  "initialState": {
+    "schemaVersion": "0.1.0",
+    "campaignId": "scenario",
+    "sessionId": "tavern-skirmish-001",
+    "timestamp": "2026-02-11T18:00:00Z",
+    "rng": {
+      "mode": "seeded",
+      "seed": "tavern-skirmish-seed",
+      "lastRolls": []
+    },
+    "map": {
+      "id": "map-tavern",
+      "name": "The Rusty Tankard",
+      "grid": {
+        "type": "square",
+        "size": {
+          "width": 15,
+          "height": 10
+        },
+        "cellSize": 5
+      },
+      "terrain": [
+        {
+          "x": 3,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 7,
+          "y": 4,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 7,
+          "y": 5,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 8,
+          "y": 4,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 10,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 10,
+          "y": 1,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        }
+      ],
+      "fogOfWarEnabled": false
+    },
+    "entities": {
+      "players": [
+        {
+          "id": "pc-seren",
+          "kind": "player",
+          "name": "Seren Ashford",
+          "position": {
+            "x": 2,
+            "y": 3
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 22,
+            "hpMax": 28,
+            "ac": 16,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-longsword",
+              "name": "Longsword",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "melee"
+              ]
+            },
+            {
+              "id": "item-shield",
+              "name": "Shield",
+              "qty": 1,
+              "tags": [
+                "armor"
+              ]
+            }
+          ],
+          "token": {
+            "style": "mini",
+            "spriteKey": "seren-paladin"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-seren"
+          }
+        },
+        {
+          "id": "pc-miri",
+          "kind": "player",
+          "name": "Miri Thistledown",
+          "position": {
+            "x": 4,
+            "y": 6
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 18,
+            "hpMax": 22,
+            "ac": 13,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-shortbow",
+              "name": "Shortbow",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "ranged"
+              ]
+            },
+            {
+              "id": "item-arrows",
+              "name": "Arrows",
+              "qty": 20,
+              "tags": [
+                "ammo"
+              ]
+            }
+          ],
+          "token": {
+            "style": "standee",
+            "spriteKey": "miri-ranger"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-miri"
+          }
+        }
+      ],
+      "npcs": [
+        {
+          "id": "npc-barkeep",
+          "kind": "npc",
+          "name": "Old Haggard",
+          "position": {
+            "x": 6,
+            "y": 2
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 8,
+            "hpMax": 8,
+            "ac": 10,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        },
+        {
+          "id": "npc-goblin",
+          "kind": "npc",
+          "name": "Goblin Sneak",
+          "position": {
+            "x": 9,
+            "y": 5
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 10,
+            "hpMax": 12,
+            "ac": 13,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-table1",
+          "kind": "object",
+          "name": "Wooden Table",
+          "position": {
+            "x": 5,
+            "y": 4
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 15,
+            "hpMax": 15,
+            "ac": 5,
+            "movementSpeed": 0
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "pawn",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        }
+      ]
+    },
+    "combat": {
+      "mode": "exploration",
+      "round": 0,
+      "activeEntityId": null,
+      "initiativeOrder": []
+    },
+    "log": {
+      "events": [
+        {
+          "id": "evt-s1-001",
+          "timestamp": "2026-02-11T18:00:00Z",
+          "type": "session_start",
+          "payload": {
+            "message": "Tavern Skirmish: A goblin lurks in the shadows."
+          }
+        }
+      ]
+    },
+    "ui": {
+      "selectedEntityId": null,
+      "hoveredCell": null
+    }
+  },
+  "steps": [
+    {
+      "action": {
+        "type": "MOVE",
+        "entityId": "pc-seren",
+        "path": [
+          {
+            "x": 2,
+            "y": 4
+          }
+        ]
+      },
+      "expectedEvents": [
+        {
+          "type": "MOVE_APPLIED"
+        }
+      ],
+      "expectedStateHash": "74c4996f1f50ebd9"
+    },
+    {
+      "action": {
+        "type": "ROLL_INITIATIVE"
+      },
+      "expectedEvents": [
+        {
+          "type": "INITIATIVE_ROLLED"
+        }
+      ],
+      "expectedStateHash": "fcdcba74ef44d192"
+    },
+    {
+      "action": {
+        "type": "ATTACK",
+        "attackerId": "npc-goblin",
+        "targetId": "pc-miri"
+      },
+      "expectedEvents": [
+        {
+          "type": "ATTACK_RESOLVED"
+        }
+      ],
+      "expectedStateHash": "0a3dd26be5abeeb9"
+    },
+    {
+      "action": {
+        "type": "END_TURN",
+        "entityId": "npc-goblin"
+      },
+      "expectedEvents": [
+        {
+          "type": "TURN_ENDED"
+        }
+      ],
+      "expectedStateHash": "304ccf5c902582e2"
+    },
+    {
+      "action": {
+        "type": "MOVE",
+        "entityId": "pc-miri",
+        "path": [
+          {
+            "x": 3,
+            "y": 0
+          }
+        ],
+        "_expectReject": true
+      },
+      "expectedEvents": [
+        {
+          "type": "ACTION_REJECTED"
+        }
+      ],
+      "expectedStateHash": "835678459d633d5f"
+    },
+    {
+      "action": {
+        "type": "MOVE",
+        "entityId": "pc-miri",
+        "path": [
+          {
+            "x": 5,
+            "y": 6
+          }
+        ]
+      },
+      "expectedEvents": [
+        {
+          "type": "MOVE_APPLIED"
+        }
+      ],
+      "expectedStateHash": "930373dbe8ed5ead"
+    }
+  ],
+  "final": {
+    "expectedStateHash": "930373dbe8ed5ead"
+  }
+}

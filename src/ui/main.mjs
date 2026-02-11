@@ -374,6 +374,8 @@ const btnRunReplay = document.getElementById("btn-run-replay");
 const indModeEl = document.getElementById("ind-mode");
 const indActiveEl = document.getElementById("ind-active");
 const indSeedEl = document.getElementById("ind-seed");
+const indAiModeEl = document.getElementById("ind-ai-mode");
+const indInvariantEl = document.getElementById("ind-invariant");
 
 function loadState(newState) {
   gameState = structuredClone(newState);
@@ -397,7 +399,35 @@ function updateIndicators() {
   if (indSeedEl) {
     indSeedEl.textContent = `seed: ${gameState.rng.seed || "—"}`;
   }
+  // AI mode badge — probe bridge availability
+  if (indAiModeEl) {
+    indAiModeEl.textContent = `🤖 ${indAiModeEl.dataset.mode || "mock"}`;
+  }
+  // Invariant badge — lightweight check
+  if (indInvariantEl) {
+    try {
+      const allEnts = [...gameState.entities.players, ...gameState.entities.npcs, ...gameState.entities.objects];
+      const ids = allEnts.map(e => e.id);
+      const dupFree = new Set(ids).size === ids.length;
+      const { width, height } = gameState.map.grid.size;
+      const inBounds = allEnts.every(e => e.position.x >= 0 && e.position.x < width && e.position.y >= 0 && e.position.y < height);
+      const ok = dupFree && inBounds;
+      indInvariantEl.textContent = ok ? "✓ valid" : "⚠ invalid";
+      indInvariantEl.className = ok ? "badge-invariant-ok" : "badge-invariant-fail";
+    } catch { /* skip */ }
+  }
 }
+
+// Probe AI bridge mode on startup
+(async () => {
+  try {
+    const r = await fetch("http://localhost:3002/api/propose", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inputText: "ping", state: gameState, mode: "real" }) });
+    const d = await r.json();
+    if (indAiModeEl) { indAiModeEl.dataset.mode = d.mode || "mock"; indAiModeEl.textContent = `🤖 ${d.mode || "mock"}`; }
+  } catch {
+    if (indAiModeEl) { indAiModeEl.dataset.mode = "offline"; indAiModeEl.textContent = "🤖 offline"; }
+  }
+})();
 
 // ── Scenario Selector (MIR 4.2) ─────────────────────────────────────────
 
@@ -454,7 +484,7 @@ document.getElementById("btn-demo-encounter")?.addEventListener("click", () => {
 // Replay selector — fetch available replays from server
 async function loadReplayList() {
   if (!replaySelectEl) return;
-  const REPLAY_FILES = ["combat_flow.replay.json", "rejected_move.replay.json"];
+  const REPLAY_FILES = ["demo_showcase.replay.json", "combat_flow.replay.json", "rejected_move.replay.json"];
   for (const name of REPLAY_FILES) {
     const opt = document.createElement("option");
     opt.value = `/replays/${name}`;

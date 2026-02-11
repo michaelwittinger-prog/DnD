@@ -219,6 +219,37 @@ body {
   font-family: "Consolas", "Fira Code", monospace;
 }
 
+.badge-engine {
+  background: #1a3a1a !important;
+  color: #6f6 !important;
+  border: 1px solid #3a6a3a;
+  font-weight: bold;
+}
+
+.badge-ai {
+  background: #2a1a4e !important;
+  color: #c0a0ff !important;
+  border: 1px solid #4a3a6e;
+}
+
+.badge-invariant-ok {
+  background: #1a3a1a !important;
+  color: #6f6 !important;
+}
+
+.badge-invariant-fail {
+  background: #4a1a1a !important;
+  color: #f66 !important;
+  border: 1px solid #8a3a3a;
+  font-weight: bold;
+  animation: pulse-warn 1s ease-in-out infinite;
+}
+
+@keyframes pulse-warn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 /* ── Selected info ───────────────────────────────── */
 
 #selected-info {
