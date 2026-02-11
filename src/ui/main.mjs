@@ -234,12 +234,13 @@ function onAiPropose(playerInput) {
   dispatch(result.action);
 
   // Update AI feedback based on engine result
+  const mode = result.mode || "mock";
   const lastEvent = gameState.log.events[gameState.log.events.length - 1];
   if (lastEvent?.type === "ACTION_REJECTED") {
-    showAiFeedback(`✗ Engine rejected: ${lastEvent.payload.reasons?.[0] || "unknown"}`, "error");
+    showAiFeedback(`[${mode}] ✗ Engine rejected: ${lastEvent.payload.reasons?.[0] || "unknown"}`, "error");
     console.log(`[AI] Engine: ✗ ACTION_REJECTED`);
   } else {
-    showAiFeedback(`✓ ${lastEvent?.type || "OK"} (${result.durationMs}ms)`, "success");
+    showAiFeedback(`[${mode}] ✓ ${lastEvent?.type || "OK"} (${result.durationMs}ms)`, "success");
     console.log(`[AI] Engine: ✓ ${lastEvent?.type}`);
   }
 }

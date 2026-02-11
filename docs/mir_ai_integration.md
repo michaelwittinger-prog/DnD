@@ -1,6 +1,6 @@
 # MIR AI Integration — GM Intelligence Layer
 
-> MIR 3.1 · GM Intelligence Layer
+> MIR 3.1 / 3.2 · GM Intelligence Layer
 
 ## Purpose
 
@@ -203,9 +203,80 @@ uses `proposeAction()` with the real OpenAI client.
 - **"Propose via AI" button**: `#btn-ai-propose` — triggers mock proposal
 - **Debug panel**: `#ai-debug` — shows raw AI output and parse result
 
-## Logging
+## Running AI Locally (Node)
 
-Every AI proposal is logged to the browser console:
+### Required Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `OPENAI_API_KEY` | Yes (for real AI) | — | Your OpenAI API key |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | Model name override |
+
+### Setup
+
+```bash
+# 1. Copy .env.example to .env and set your key
+cp .env.example .env
+# Edit .env: OPENAI_API_KEY=sk-your-key-here
+
+# 2. Run tests (no network, no key needed)
+npm run test:ai
+
+# 3. Use real AI in Node scripts
+node -e "
+  import('dotenv/config');
+  import { proposeAction } from './src/ai/aiClient.mjs';
+  import { explorationExample } from './src/state/exampleStates.mjs';
+  const r = await proposeAction(explorationExample, 'attack the barkeep');
+  console.log(r);
+"
+```
+
+### Configuration
+
+The `AI_CONFIG` object in `aiClient.mjs` defines immutable defaults:
+
+```js
+AI_CONFIG = {
+  model: "gpt-4o-mini",     // Override with OPENAI_MODEL env var
+  temperature: 0,            // Fixed low — clamped to [0, 0.3]
+  maxTokens: 256,            // Hard cap on response length
+  responseFormat: "json_object",  // Enforced via API parameter
+}
+```
+
+Temperature is **clamped to 0–0.3** even if overridden per-call. This prevents
+creative hallucinations while allowing slight variation if needed.
+
+### JSON Response Format
+
+The client sends `response_format: { type: "json_object" }` to the API,
+which forces the model to output valid JSON. Combined with the parser's
+strict validation, this provides two layers of JSON enforcement.
+
+## Browser Strategy
+
+The browser UI uses `proposeActionMock()` — a keyword-based local parser
+that runs entirely in the browser with no API calls.
+
+**Future plan:** A small Node endpoint (e.g., `POST /api/ai/propose`) will
+accept `{ state, playerInput }` and return `AiProposalResult`. The browser
+will call this endpoint instead of the mock. This endpoint is **not yet built** —
+the mock is sufficient for UI development and testing.
+
+## Logging and Redaction
+
+### Redaction Rules
+
+All AI outputs are logged through `logProposal()` which applies:
+
+1. **API key masking**: Any `sk-...` pattern is replaced with `sk-***REDACTED***`
+2. **Truncation**: Raw text over 500 chars is truncated with `… [truncated, N chars total]`
+3. **Mode tagging**: Logs are tagged `[AI:real]` or `[AI:mock]` to distinguish paths
+
+### Log Format
+
+Every AI proposal is logged to the console:
 
 ```
 [AI] Input: "attack barkeep"
