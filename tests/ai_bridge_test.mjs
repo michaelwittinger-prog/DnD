@@ -101,7 +101,7 @@ origLog("[Test 4] Unparseable mock input returns ok=false");
   assert(r.status === 200, "status 200");
   assert(r.body.ok === false, "ok is false");
   assert(Array.isArray(r.body.errors), "errors array present");
-  assert(r.body.errors[0].includes("could not understand"), "helpful error message");
+  assert(r.body.errors[0].includes("could not understand") || r.body.errors[0].includes("Try:"), "helpful error message");
 }
 origLog();
 

@@ -175,26 +175,39 @@ export function proposeActionMock(state, playerInput) {
   ];
 
   let action = null;
+  let hint = "";
 
-  if (input.startsWith("roll initiative") || input.startsWith("start combat")) {
+  // ── Initiative ──
+  if (input.startsWith("roll initiative") || input.startsWith("start combat") || input === "initiative") {
     action = { type: "ROLL_INITIATIVE" };
-  } else if (input.startsWith("end turn")) {
+
+  // ── End Turn ──
+  } else if (input.startsWith("end turn") || input === "end" || input === "next" || input === "pass") {
     const activeId = state.combat.activeEntityId;
     if (activeId) {
       action = { type: "END_TURN", entityId: activeId };
+    } else {
+      hint = "No active entity — start combat first with 'roll initiative'";
     }
-  } else if (input.includes("attack")) {
-    const match = input.match(/attack\s+(.+)/);
-    if (match) {
-      const target = findEntityByNameOrId(allEntities, match[1].trim());
+
+  // ── Attack ──
+  } else if (/\b(attack|hit|strike|fight|slash|swing at|shoot)\b/.test(input)) {
+    const attackMatch = input.match(/(?:attack|hit|strike|fight|slash|swing at|shoot)\s+(?:the\s+)?(.+)/);
+    if (attackMatch) {
+      const target = findEntityFuzzy(allEntities, attackMatch[1].trim());
       const attacker = state.combat.mode === "combat"
         ? state.combat.activeEntityId
         : state.entities.players[0]?.id;
       if (target && attacker) {
         action = { type: "ATTACK", attackerId: attacker, targetId: target.id };
+      } else if (!target) {
+        const names = allEntities.map(e => e.name).join(", ");
+        hint = `Could not find target "${attackMatch[1]}". Known: ${names}`;
       }
     }
-  } else if (input.includes("move") || input.includes("go to")) {
+
+  // ── Move ──
+  } else if (/\b(move|go|walk|run|step|advance)\b/.test(input) || input.match(/\d+\s*[,\s]\s*\d+/)) {
     const coordMatch = input.match(/(\d+)\s*[,\s]\s*(\d+)/);
     if (coordMatch) {
       const tx = parseInt(coordMatch[1], 10);
@@ -203,8 +216,9 @@ export function proposeActionMock(state, playerInput) {
         ? state.combat.activeEntityId
         : state.entities.players[0]?.id;
 
+      // Check if a specific entity is named
       for (const ent of allEntities) {
-        if (input.includes(ent.name.toLowerCase()) || input.includes(ent.id.toLowerCase())) {
+        if (matchesEntity(input, ent)) {
           mover = ent.id;
           break;
         }
@@ -216,10 +230,18 @@ export function proposeActionMock(state, playerInput) {
           const path = buildCardinalPath(ent.position, { x: tx, y: ty });
           if (path.length > 0) {
             action = { type: "MOVE", entityId: mover, path };
+          } else {
+            hint = `${ent.name} is already at (${tx},${ty})`;
           }
         }
+      } else {
+        hint = "No entity to move — load a scenario first";
       }
+    } else {
+      hint = "Move needs coordinates, e.g. 'move seren to 3,4'";
     }
+  } else {
+    hint = "Try: 'move seren to 3,4', 'attack goblin', 'roll initiative', 'end turn'";
   }
 
   const durationMs = Date.now() - t0;
@@ -229,13 +251,66 @@ export function proposeActionMock(state, playerInput) {
 
   const result = action
     ? { ok: true, action, rawText, durationMs, mode: "mock" }
-    : { ok: false, reason: `Mock parser could not understand: "${playerInput}"`, rawText, durationMs, mode: "mock" };
+    : { ok: false, reason: hint || `Try: 'move seren to 3,4', 'attack goblin', 'roll initiative', 'end turn'`, rawText, durationMs, mode: "mock" };
 
   logProposal(playerInput, result, "mock");
   return result;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Fuzzy entity match: exact > partial name > partial id > first-word match.
+ * Strips "the", trims, and lowercases before comparison.
+ */
+function findEntityFuzzy(entities, query) {
+  const q = query.toLowerCase().replace(/^the\s+/, "").trim();
+  if (!q) return null;
+
+  // 1. Exact name or id
+  const exact = entities.find(
+    (e) => e.id.toLowerCase() === q || e.name.toLowerCase() === q
+  );
+  if (exact) return exact;
+
+  // 2. Partial: name includes query or query includes name fragment
+  const partial = entities.find((e) => {
+    const name = e.name.toLowerCase();
+    const id = e.id.toLowerCase();
+    return name.includes(q) || id.includes(q) || q.includes(name);
+  });
+  if (partial) return partial;
+
+  // 3. First-word match (e.g. "goblin" matches "Goblin Sneak")
+  const firstWord = entities.find((e) => {
+    const words = e.name.toLowerCase().split(/\s+/);
+    return words.some((w) => w === q || q === w);
+  });
+  if (firstWord) return firstWord;
+
+  // 4. ID fragment without prefix (e.g. "miri" matches "pc-miri")
+  const idFrag = entities.find((e) => {
+    const idParts = e.id.toLowerCase().split("-");
+    return idParts.some((p) => p === q || p.includes(q));
+  });
+  return idFrag || null;
+}
+
+/**
+ * Check if the input text mentions this entity by name or id (partial match).
+ */
+function matchesEntity(input, ent) {
+  const name = ent.name.toLowerCase();
+  const id = ent.id.toLowerCase();
+  // Check full name, first name, or id
+  if (input.includes(name) || input.includes(id)) return true;
+  const firstName = name.split(/\s+/)[0];
+  if (firstName.length >= 3 && input.includes(firstName)) return true;
+  // Check id without prefix (e.g. "seren" from "pc-seren")
+  const idSuffix = id.split("-").pop();
+  if (idSuffix && idSuffix.length >= 3 && input.includes(idSuffix)) return true;
+  return false;
+}
 
 function findEntityByNameOrId(entities, query) {
   const q = query.toLowerCase();
