@@ -1,0 +1,12 @@
+{
+  "narration": "Captain Voss ends their turn.",
+  "adjudication": "Turn ends. Next combatant acts.",
+  "map_updates": [],
+  "state_updates": [
+    {
+      "op": "end_turn",
+      "entity_id": "npc-02"
+    }
+  ],
+  "questions": []
+}

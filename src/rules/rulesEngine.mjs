@@ -206,6 +206,98 @@ function checkNoDirectMutation(aiResponse) {
   return violations;
 }
 
+// ── Combat helpers ─────────────────────────────────────────────────────
+
+function getActiveEntityId(state) {
+  if (!state.combat?.active) return null;
+  const order = state.combat.initiative_order;
+  const idx = state.combat.active_index;
+  return order[idx] ?? null;
+}
+
+// ── Combat rule checks ─────────────────────────────────────────────────
+
+function checkStartCombat(op, opIdx, state, entityIds) {
+  const violations = [];
+  const path = `state_updates[${opIdx}]`;
+
+  // Cannot start if combat already active
+  if (state.combat?.active) {
+    violations.push(violation(
+      V.COMBAT_ALREADY_ACTIVE,
+      "Combat is already active. Cannot start another combat.",
+      path
+    ));
+    return violations;
+  }
+
+  // Must have at least 2 participants
+  if (!op.participants || op.participants.length < 2) {
+    violations.push(violation(
+      V.COMBAT_TOO_FEW_PARTICIPANTS,
+      "start_combat requires at least 2 participants.",
+      path
+    ));
+    return violations;
+  }
+
+  // All participant entity IDs must exist
+  for (let j = 0; j < op.participants.length; j++) {
+    const p = op.participants[j];
+    if (!entityIds.has(p.entity_id)) {
+      violations.push(violation(
+        V.COMBAT_PARTICIPANT_NOT_FOUND,
+        `Participant entity "${p.entity_id}" not found in game state.`,
+        `${path}.participants[${j}]`
+      ));
+    }
+  }
+
+  return violations;
+}
+
+function checkEndTurnCombat(op, opIdx, state) {
+  const violations = [];
+  const path = `state_updates[${opIdx}]`;
+
+  // Combat must be active
+  if (!state.combat?.active) {
+    violations.push(violation(
+      V.COMBAT_NOT_ACTIVE,
+      "Cannot end turn: combat is not active.",
+      path
+    ));
+    return violations;
+  }
+
+  // Only the active entity can end their turn
+  const activeId = getActiveEntityId(state);
+  if (op.entity_id !== activeId) {
+    violations.push(violation(
+      V.END_TURN_WRONG_ENTITY,
+      `Entity "${op.entity_id}" cannot end turn. Active entity is "${activeId}".`,
+      path
+    ));
+  }
+
+  return violations;
+}
+
+/**
+ * Task 4 — NOT_YOUR_TURN enforcement.
+ * When combat is active, only the active entity can perform move_entity.
+ */
+function checkNotYourTurn(entityId, opPath, state) {
+  if (!state.combat?.active) return [];
+  const activeId = getActiveEntityId(state);
+  if (entityId === activeId) return [];
+  return [violation(
+    V.NOT_YOUR_TURN,
+    `Entity "${entityId}" cannot act. It is "${activeId}"'s turn.`,
+    opPath
+  )];
+}
+
 // ── Rule checks per operation ──────────────────────────────────────────
 
 function checkMoveEntity(op, opIdx, state, bounds, occupancy, moveCountPerEntity) {
@@ -493,6 +585,8 @@ export function evaluateProposal({ state, aiResponse }) {
     const op = mapUpdates[i];
     switch (op.op) {
       case "move_entity":
+        // Task 4: NOT_YOUR_TURN enforcement during combat
+        allViolations.push(...checkNotYourTurn(op.entity_id, `map_updates[${i}]`, state));
         allViolations.push(...checkMoveEntity(op, i, state, bounds, occupancy, moveCountPerEntity));
         // Update occupancy optimistically for subsequent collision checks
         if (findEntity(state, op.entity_id)?.position) {
@@ -528,6 +622,12 @@ export function evaluateProposal({ state, aiResponse }) {
         break;
       case "advance_turn":
         allViolations.push(...checkAdvanceTurn(op, i, advanceTurnCount));
+        break;
+      case "start_combat":
+        allViolations.push(...checkStartCombat(op, i, state, entityIds));
+        break;
+      case "end_turn":
+        allViolations.push(...checkEndTurnCombat(op, i, state));
         break;
       default:
         allViolations.push(violation(

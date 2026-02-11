@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "schemaVersion": "0.5.0",
+    "createdAt": "2025-06-01T10:00:00.000Z",
+    "updatedAt": "2025-06-01T10:05:00.000Z",
+    "source": "combat-test-fixture"
+  },
+  "session": {
+    "id": "session-combat-01",
+    "name": "Combat Test Session",
+    "status": "active",
+    "gm": "AI",
+    "players": ["Alice", "Bob"]
+  },
+  "ruleset": {
+    "system": "D&D",
+    "edition": "5e",
+    "houseRules": []
+  },
+  "timeline": {
+    "currentTime": "Day 1, Morning",
+    "turn": 0,
+    "events": []
+  },
+  "world": {
+    "name": "Test Arena",
+    "region": "Arena",
+    "locations": []
+  },
+  "map": {
+    "name": "Combat Arena",
+    "dimensions": { "width": 20, "height": 15 },
+    "tiles": []
+  },
+  "entities": [
+    {
+      "id": "pc-01",
+      "name": "Seren",
+      "type": "player",
+      "stats": { "hp": 30, "maxHp": 30, "ac": 15, "speed": 6 },
+      "position": { "x": 2, "y": 3 }
+    },
+    {
+      "id": "pc-02",
+      "name": "Thane",
+      "type": "player",
+      "stats": { "hp": 25, "maxHp": 25, "ac": 18, "speed": 5 },
+      "position": { "x": 4, "y": 3 }
+    },
+    {
+      "id": "npc-01",
+      "name": "Goblin Scout",
+      "type": "npc",
+      "stats": { "hp": 12, "maxHp": 12, "ac": 13, "speed": 6 },
+      "position": { "x": 8, "y": 3 }
+    },
+    {
+      "id": "npc-02",
+      "name": "Goblin Captain",
+      "type": "npc",
+      "stats": { "hp": 20, "maxHp": 20, "ac": 16, "speed": 5 },
+      "position": { "x": 10, "y": 5 }
+    }
+  ],
+  "inventory": { "gold": 50, "items": [] },
+  "quests": [],
+  "flags": {},
+  "rng": { "seed": 42, "lastRoll": { "sides": 20, "result": 14 } },
+  "logs": [
+    {
+      "id": "log-init",
+      "message": "Combat test initialized.",
+      "level": "info",
+      "timestamp": "2025-06-01T10:00:00.000Z"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "narration": "Roll for initiative! Combat begins.",
+  "adjudication": "All combatants roll initiative. Combat round 1 starts.",
+  "map_updates": [],
+  "state_updates": [
+    {
+      "op": "start_combat",
+      "participants": [
+        { "entity_id": "pc-01", "initiative": 15 },
+        { "entity_id": "npc-02", "initiative": 18 }
+      ]
+    }
+  ],
+  "questions": []
+}

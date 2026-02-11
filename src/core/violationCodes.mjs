@@ -43,6 +43,14 @@ export const V = Object.freeze({
   // ── Turn ─────────────────────────────────────────────────────────────
   ADVANCE_TURN_DUPLICATE:       "ADVANCE_TURN_DUPLICATE",
 
+  // ── Combat ───────────────────────────────────────────────────────────
+  COMBAT_ALREADY_ACTIVE:        "COMBAT_ALREADY_ACTIVE",
+  COMBAT_NOT_ACTIVE:            "COMBAT_NOT_ACTIVE",
+  COMBAT_PARTICIPANT_NOT_FOUND: "COMBAT_PARTICIPANT_NOT_FOUND",
+  COMBAT_TOO_FEW_PARTICIPANTS:  "COMBAT_TOO_FEW_PARTICIPANTS",
+  NOT_YOUR_TURN:                "NOT_YOUR_TURN",
+  END_TURN_WRONG_ENTITY:        "END_TURN_WRONG_ENTITY",
+
   // ── Unknown operations ───────────────────────────────────────────────
   UNKNOWN_MAP_OP:               "UNKNOWN_MAP_OP",
   UNKNOWN_STATE_OP:             "UNKNOWN_STATE_OP",
