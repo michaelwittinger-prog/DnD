@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MIR — Tabletop Engine</title>
+  <link rel="stylesheet" href="/src/ui/styles.css">
+
+  <!-- Redirect Node-only validateGameState to browser shim -->
+  <script type="importmap">
+  {
+    "imports": {
+      "/src/state/validateGameState.mjs": "/src/ui/validateShim.mjs"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header id="header">
+      <h1>MIR — Tabletop Engine</h1>
+      <span id="map-name"></span>
+      <span id="combat-status"></span>
+    </header>
+
+    <div id="main">
+      <div id="canvas-wrap">
+        <canvas id="battlemap"></canvas>
+      </div>
+
+      <aside id="sidebar">
+        <section id="section-info">
+          <h2>Selected</h2>
+          <div id="selected-info">Click a token to select</div>
+        </section>
+
+        <section id="section-actions">
+          <h2>Actions</h2>
+          <button id="btn-roll-init">⚔ Roll Initiative</button>
+          <button id="btn-end-turn">⏭ End Turn</button>
+          <button id="btn-attack">🗡 Attack Target</button>
+          <div id="action-feedback"></div>
+        </section>
+
+        <section id="section-initiative">
+          <h2>Initiative</h2>
+          <ol id="initiative-list"></ol>
+        </section>
+
+        <section id="section-log">
+          <h2>Event Log</h2>
+          <ul id="event-log"></ul>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <script type="module" src="/src/ui/main.mjs"></script>
+</body>
+</html>

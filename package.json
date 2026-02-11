@@ -26,7 +26,8 @@
     "dev:viewer": "node scripts/run-viewer.mjs",
     "view": "node scripts/run-viewer.mjs",
     "view:sync": "node scripts/sync-state.mjs",
-    "viewer:install": "npm --prefix viewer install"
+    "viewer:install": "npm --prefix viewer install",
+    "ui": "node src/ui/serve.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
