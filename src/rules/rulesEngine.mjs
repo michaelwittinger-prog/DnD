@@ -21,6 +21,8 @@ import { createRequire } from "module";
 import { applyAiResponse } from "../pipeline/applyAiResponse.mjs";
 import { V } from "../core/violationCodes.mjs";
 import { validateTacticalEvents } from "../validation/tacticalValidator.mjs";
+import { validateAbilityUses } from "../validation/abilityValidator.mjs";
+import { resolveAbilityUses } from "../combat/resolveAbilityUses.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..");
@@ -38,7 +40,7 @@ const DEFAULT_MOVEMENT_BUDGET = 6;
 /** Allowed top-level keys in AI response (defense-in-depth). */
 const ALLOWED_AI_RESPONSE_KEYS = new Set([
   "narration", "adjudication", "map_updates", "state_updates", "questions",
-  "tactical_events",
+  "tactical_events", "ability_uses",
 ]);
 
 // ── RuleViolation factory ──────────────────────────────────────────────
@@ -650,6 +652,26 @@ export function evaluateProposal({ state, aiResponse }) {
           err,
           "tactical_events"
         ));
+      }
+    }
+  }
+
+  // ── Gate 5: Ability system (Phase 6.2, Option B) ─────────────────
+  if (aiResponse.ability_uses && aiResponse.ability_uses.length > 0) {
+    // Option B: Disallow coexistence with tactical_events
+    if (aiResponse.tactical_events && aiResponse.tactical_events.length > 0) {
+      allViolations.push(violation(
+        V.ABILITY_TACTICAL_COEXIST,
+        "ability_uses and tactical_events cannot coexist in the same response (Option B).",
+        "ability_uses"
+      ));
+    } else {
+      // Validate ability uses
+      const abilityResult = validateAbilityUses(aiResponse.ability_uses, state);
+      if (!abilityResult.valid) {
+        for (const err of abilityResult.errors) {
+          allViolations.push(violation(err.code, err.message, err.path));
+        }
       }
     }
   }

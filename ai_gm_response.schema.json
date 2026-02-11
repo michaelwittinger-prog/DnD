@@ -39,6 +39,11 @@
       "type": "array",
       "description": "Optional deterministic tactical event sequence. Processed strictly in array order. Absence preserves existing behavior.",
       "items": { "$ref": "#/$defs/tactical_event" }
+    },
+    "ability_uses": {
+      "type": "array",
+      "description": "Optional ability usage declarations. Each entry references a known ability by id. Resolved deterministically into tactical_events by the engine. Must not coexist with tactical_events in the same response.",
+      "items": { "$ref": "#/$defs/ability_use" }
     }
   },
   "$defs": {
@@ -310,6 +315,20 @@
       "properties": {
         "op": { "const": "end_turn" },
         "entity_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ability_use": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["use_id", "actor_id", "ability_id"],
+      "properties": {
+        "use_id": { "type": "string", "minLength": 1 },
+        "actor_id": { "type": "string", "minLength": 1 },
+        "ability_id": { "type": "string", "minLength": 1 },
+        "targets": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "target_positions": { "type": "array", "items": { "$ref": "#/$defs/pos" } },
+        "parameters": { "type": "object", "additionalProperties": true },
+        "declared_costs": { "type": "object", "additionalProperties": true }
       }
     },
     "tactical_event": {
