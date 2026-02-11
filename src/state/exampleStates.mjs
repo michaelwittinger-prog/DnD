@@ -98,6 +98,75 @@ export const explorationExample = {
   ui: { selectedEntityId: null, hoveredCell: null },
 };
 
+// ── Demo encounter (MIR 4.1) ───────────────────────────────────────────
+// 2 PCs, 2 NPCs, blocked terrain — ready to play out of the box
+
+export const demoEncounter = {
+  schemaVersion: "0.1.0",
+  campaignId: "demo",
+  sessionId: "demo-encounter-001",
+  timestamp: "2026-02-11T18:00:00Z",
+  rng: { mode: "seeded", seed: "demo-encounter-seed", lastRolls: [] },
+  map: {
+    id: "map-tavern",
+    name: "The Rusty Tankard",
+    grid: { type: "square", size: { width: 15, height: 10 }, cellSize: 5 },
+    terrain: [
+      { x: 3, y: 0, type: "blocked", blocksMovement: true, blocksVision: true },
+      { x: 3, y: 1, type: "blocked", blocksMovement: true, blocksVision: true },
+      { x: 3, y: 2, type: "blocked", blocksMovement: true, blocksVision: true },
+      { x: 7, y: 4, type: "difficult", blocksMovement: false },
+      { x: 7, y: 5, type: "difficult", blocksMovement: false },
+      { x: 8, y: 4, type: "difficult", blocksMovement: false },
+      { x: 10, y: 0, type: "blocked", blocksMovement: true, blocksVision: true },
+      { x: 10, y: 1, type: "blocked", blocksMovement: true, blocksVision: true },
+    ],
+    fogOfWarEnabled: false,
+  },
+  entities: {
+    players: [
+      makeEntity("pc-seren", "player", "Seren Ashford", 2, 3, {
+        stats: { hpCurrent: 22, hpMax: 28, ac: 16, movementSpeed: 6 },
+        inventory: [
+          { id: "item-longsword", name: "Longsword", qty: 1, tags: ["weapon", "melee"] },
+          { id: "item-shield", name: "Shield", qty: 1, tags: ["armor"] },
+        ],
+        token: { style: "mini", spriteKey: "seren-paladin" },
+      }),
+      makeEntity("pc-miri", "player", "Miri Thistledown", 4, 6, {
+        stats: { hpCurrent: 18, hpMax: 22, ac: 13, movementSpeed: 6 },
+        inventory: [
+          { id: "item-shortbow", name: "Shortbow", qty: 1, tags: ["weapon", "ranged"] },
+          { id: "item-arrows", name: "Arrows", qty: 20, tags: ["ammo"] },
+        ],
+        token: { style: "standee", spriteKey: "miri-ranger" },
+      }),
+    ],
+    npcs: [
+      makeEntity("npc-barkeep", "npc", "Old Haggard", 6, 2, {
+        stats: { hpCurrent: 8, hpMax: 8, ac: 10, movementSpeed: 6 },
+      }),
+      makeEntity("npc-goblin", "npc", "Goblin Sneak", 9, 5, {
+        stats: { hpCurrent: 10, hpMax: 12, ac: 13, movementSpeed: 6 },
+      }),
+    ],
+    objects: [
+      makeEntity("obj-table1", "object", "Wooden Table", 5, 4, {
+        stats: { hpCurrent: 15, hpMax: 15, ac: 5, movementSpeed: 0 },
+        token: { style: "pawn", spriteKey: null },
+        controller: { type: "ai", playerId: null },
+      }),
+    ],
+  },
+  combat: { mode: "exploration", round: 0, activeEntityId: null, initiativeOrder: [] },
+  log: {
+    events: [
+      { id: "evt-demo-001", timestamp: "2026-02-11T18:00:00Z", type: "session_start", payload: { message: "Demo encounter: The Rusty Tankard. A goblin lurks in the shadows." } },
+    ],
+  },
+  ui: { selectedEntityId: null, hoveredCell: null },
+};
+
 // ── Combat example ─────────────────────────────────────────────────────
 
 export const combatExample = {

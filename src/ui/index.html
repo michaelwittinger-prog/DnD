@@ -23,6 +23,23 @@
       </div>
 
       <aside id="sidebar">
+        <section id="section-welcome">
+          <h2>🎲 Getting Started</h2>
+          <div id="welcome-panel">
+            <button id="btn-demo-encounter" class="btn-primary">⚔ Start Demo Encounter</button>
+            <div class="welcome-replay-row">
+              <select id="replay-select"><option value="">— Load Replay —</option></select>
+              <button id="btn-run-replay" disabled>▶ Run</button>
+            </div>
+            <div id="replay-status"></div>
+          </div>
+          <div id="state-indicators">
+            <span id="ind-mode" title="Mode">🏕 exploration</span>
+            <span id="ind-active" title="Active entity">—</span>
+            <span id="ind-seed" title="RNG seed">seed: —</span>
+          </div>
+        </section>
+
         <section id="section-info">
           <h2>Selected</h2>
           <div id="selected-info">Click a token to select</div>

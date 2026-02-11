@@ -8,7 +8,7 @@
 
 import { applyAction } from "../engine/applyAction.mjs";
 import { proposeActionMock } from "../ai/aiClient.mjs";
-import { explorationExample } from "../state/exampleStates.mjs";
+import { explorationExample, demoEncounter } from "../state/exampleStates.mjs";
 import { stateHash } from "../replay/hash.mjs";
 import { renderGrid } from "./renderGrid.mjs";
 import { renderTokens } from "./renderTokens.mjs";
@@ -62,6 +62,7 @@ function render() {
   renderEventLog();
   renderSeedDisplay();
   updateButtonStates();
+  updateIndicators();
 }
 
 function renderHeader() {
@@ -364,6 +365,108 @@ document.getElementById("replay-file-input")?.addEventListener("change", async (
     showReplayFeedback(`✗ ${err.message}`, "error");
   }
 });
+
+// ── Welcome Panel (MIR 4.1) ─────────────────────────────────────────────
+
+const replayStatusEl = document.getElementById("replay-status");
+const replaySelectEl = document.getElementById("replay-select");
+const btnRunReplay = document.getElementById("btn-run-replay");
+const indModeEl = document.getElementById("ind-mode");
+const indActiveEl = document.getElementById("ind-active");
+const indSeedEl = document.getElementById("ind-seed");
+
+function loadState(newState) {
+  gameState = structuredClone(newState);
+  sessionActions.length = 0;
+  Object.assign(sessionInitialState, structuredClone(gameState));
+  render();
+}
+
+function updateIndicators() {
+  if (indModeEl) {
+    const mode = gameState.combat.mode;
+    indModeEl.textContent = mode === "combat"
+      ? `⚔ combat r${gameState.combat.round}`
+      : "🏕 exploration";
+  }
+  if (indActiveEl) {
+    const id = gameState.combat.activeEntityId;
+    const ent = id ? findEntity(id) : null;
+    indActiveEl.textContent = ent ? `▸ ${ent.name}` : "—";
+  }
+  if (indSeedEl) {
+    indSeedEl.textContent = `seed: ${gameState.rng.seed || "—"}`;
+  }
+}
+
+// Demo encounter button
+document.getElementById("btn-demo-encounter")?.addEventListener("click", () => {
+  loadState(demoEncounter);
+  if (replayStatusEl) replayStatusEl.textContent = "✓ Demo encounter loaded";
+  console.log("[MIR 4.1] Demo encounter loaded");
+});
+
+// Replay selector — fetch available replays from server
+async function loadReplayList() {
+  if (!replaySelectEl) return;
+  const REPLAY_FILES = ["combat_flow.replay.json", "rejected_move.replay.json"];
+  for (const name of REPLAY_FILES) {
+    const opt = document.createElement("option");
+    opt.value = `/replays/${name}`;
+    opt.textContent = name;
+    replaySelectEl.appendChild(opt);
+  }
+}
+
+replaySelectEl?.addEventListener("change", () => {
+  if (btnRunReplay) btnRunReplay.disabled = !replaySelectEl.value;
+});
+
+btnRunReplay?.addEventListener("click", async () => {
+  const url = replaySelectEl?.value;
+  if (!url) return;
+  btnRunReplay.disabled = true;
+  if (replayStatusEl) replayStatusEl.textContent = "⏳ Loading…";
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const bundle = await resp.json();
+    if (!bundle.initialState || !Array.isArray(bundle.steps)) {
+      throw new Error("Invalid replay bundle");
+    }
+
+    // Load initial state and render
+    gameState = structuredClone(bundle.initialState);
+    render();
+    if (replayStatusEl) replayStatusEl.textContent = `⏳ Replaying ${bundle.steps.length} steps…`;
+
+    // Play steps with delay for visibility
+    let stepIdx = 0;
+    for (const step of bundle.steps) {
+      await new Promise((r) => setTimeout(r, 600));
+      const result = applyAction(gameState, step.action);
+      gameState = result.nextState;
+      stepIdx++;
+      if (replayStatusEl) replayStatusEl.textContent = `Step ${stepIdx}/${bundle.steps.length}: ${step.action.type}`;
+      render();
+    }
+
+    const finalHash = stateHash(gameState);
+    const hashOk = !bundle.final?.expectedStateHash || finalHash === bundle.final.expectedStateHash;
+    if (replayStatusEl) {
+      replayStatusEl.textContent = hashOk
+        ? `✓ ${stepIdx} steps replayed (hash: ${finalHash})`
+        : `⚠ ${stepIdx} steps, hash mismatch: ${finalHash}`;
+      replayStatusEl.className = hashOk ? "success" : "error";
+    }
+  } catch (err) {
+    if (replayStatusEl) { replayStatusEl.textContent = `✗ ${err.message}`; replayStatusEl.className = "error"; }
+  }
+  btnRunReplay.disabled = false;
+});
+
+loadReplayList();
 
 // ── Selection (UI-only state change) ────────────────────────────────────
 
