@@ -1,0 +1,62 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-01-15T10:00:00Z"
+  },
+  "session": {
+    "id": "session-002",
+    "name": "Mines of Darkhaven",
+    "status": "paused"
+  },
+  "ruleset": {
+    "system": "D&D",
+    "edition": "5e"
+  },
+  "timeline": {
+    "currentTime": "3rd of Autumn, 1493 DR",
+    "turn": 0
+  },
+  "world": {
+    "name": "Kaldoria"
+  },
+  "map": {
+    "name": "Mine Entrance",
+    "dimensions": { "width": 10, "height": 10 },
+    "tiles": [
+      { "x": 0, "y": 0, "terrain": "stone" }
+    ]
+  },
+  "entities": [
+    {
+      "id": "pc-10",
+      "name": "Brom",
+      "type": "player",
+      "stats": { "hp": 30, "ac": 18 },
+      "position": { "x": 2, "y": 3 }
+    }
+  ],
+  "inventory": {
+    "gold": 50,
+    "items": [
+      { "id": "item-10", "name": "Torch", "quantity": 5 }
+    ]
+  },
+  "quests": [
+    {
+      "id": "quest-10",
+      "title": "Clear the Mines",
+      "status": "active",
+      "objectives": ["Defeat the kobolds", "Find the lost miners"]
+    }
+  ],
+  "flags": { "mineEntered": false },
+  "rng": { "seed": 123456789, "lastRoll": { "sides": 6, "result": 4 } },
+  "logs": [
+    {
+      "id": "log-10",
+      "message": "Session paused at mine entrance.",
+      "level": "info",
+      "timestamp": "2026-01-15T10:30:00Z"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "narration": "A mysterious orc warrior appears from the shadows.",
+  "adjudication": "Spawn attempt without GM authority.",
+  "map_updates": [
+    {
+      "op": "spawn_entity",
+      "entity": {
+        "id": "orc-01",
+        "name": "Orc Warrior",
+        "type": "npc",
+        "hp": { "current": 15, "max": 15 },
+        "stats": { "ac": 13, "speed": 6, "attack_bonus": 5, "damage": "1d12+3" },
+        "role": "enemy",
+        "pos": { "x": 10, "y": 10 }
+      }
+    }
+  ],
+  "state_updates": [],
+  "questions": []
+}

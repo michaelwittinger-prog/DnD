@@ -1,0 +1,9 @@
+{
+  "player": "Ava",
+  "entity_id": "pc-01",
+  "intent": "Seren moves to 6,6 and attacks Captain Voss.",
+  "meta": {
+    "turn": 12,
+    "session_id": "session-001"
+  }
+}

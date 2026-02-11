@@ -1,0 +1,14 @@
+{
+  "narration": "Seren charges directly into Captain Voss's position.",
+  "adjudication": "Movement: 2 squares east. Collision with occupied tile.",
+  "map_updates": [
+    {
+      "op": "move_entity",
+      "entity_id": "pc-01",
+      "from": { "x": 5, "y": 6 },
+      "to": { "x": 7, "y": 6 }
+    }
+  ],
+  "state_updates": [],
+  "questions": []
+}

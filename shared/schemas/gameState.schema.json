@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/game_state.schema.json",
+  "title": "Game State Schema MVP",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["session", "map", "entities", "rules_profile", "log_compact"],
+  "properties": {
+    "session": { "$ref": "#/$defs/session" },
+    "map": { "$ref": "#/$defs/map" },
+    "entities": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/entity" }
+    },
+    "rules_profile": { "$ref": "#/$defs/rules_profile" },
+    "log_compact": { "$ref": "#/$defs/log_compact" }
+  },
+  "$defs": {
+    "pos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer", "minimum": 0 },
+        "y": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "system",
+        "language",
+        "scene_id",
+        "round",
+        "turn_index",
+        "active_entity_id",
+        "phase"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "system": { "type": "string", "minLength": 1, "description": "Example: dnd5e_light or custom_light" },
+        "language": { "enum": ["de", "en"] },
+        "scene_id": { "type": "string", "minLength": 1 },
+        "round": { "type": "integer", "minimum": 1 },
+        "turn_index": { "type": "integer", "minimum": 0 },
+        "active_entity_id": { "type": "string", "minLength": 1 },
+        "phase": { "enum": ["setup", "exploration", "combat"] }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "unit", "width", "height"],
+      "properties": {
+        "type": { "enum": ["square", "hex"] },
+        "unit": { "type": "string", "minLength": 1, "description": "Example: 5ft" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "terrain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blocked"],
+      "properties": {
+        "blocked": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pos" }
+        },
+        "difficult": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pos" }
+        }
+      }
+    },
+    "map_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "name", "pos", "blocks_movement", "blocks_line_of_sight"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1, "description": "Example: door, chest, pillar, rubble" },
+        "name": { "type": "string", "minLength": 1 },
+        "pos": { "$ref": "#/$defs/pos" },
+        "blocks_movement": { "type": "boolean" },
+        "blocks_line_of_sight": { "type": "boolean" },
+        "state": {
+          "type": "object",
+          "description": "Small object state bag, keys like open, locked.",
+          "additionalProperties": {
+            "type": ["string", "number", "boolean", "null"]
+          }
+        }
+      }
+    },
+    "token": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shape", "label"],
+      "properties": {
+        "shape": { "enum": ["circle", "square"] },
+        "label": { "type": "string", "minLength": 1, "maxLength": 6 }
+      }
+    },
+    "entity_on_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["entity_id", "pos", "token"],
+      "properties": {
+        "entity_id": { "type": "string", "minLength": 1 },
+        "pos": { "$ref": "#/$defs/pos" },
+        "token": { "$ref": "#/$defs/token" }
+      }
+    },
+    "map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["grid", "terrain", "objects", "entities_on_map"],
+      "properties": {
+        "grid": { "$ref": "#/$defs/grid" },
+        "terrain": { "$ref": "#/$defs/terrain" },
+        "objects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/map_object" }
+        },
+        "entities_on_map": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entity_on_map" }
+        }
+      }
+    },
+    "stats_light": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ac", "speed", "attack_bonus", "damage"],
+      "properties": {
+        "ac": { "type": "integer", "minimum": 0 },
+        "speed": { "type": "integer", "minimum": 0, "description": "Speed in grid units per turn" },
+        "attack_bonus": { "type": "integer" },
+        "damage": { "type": "string", "minLength": 1, "description": "Example: 1d6+2" }
+      }
+    },
+    "hp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "max"],
+      "properties": {
+        "current": { "type": "integer", "minimum": 0 },
+        "max": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "type", "role", "stats", "hp", "conditions"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["player", "npc"] },
+        "role": { "enum": ["pc", "enemy", "ally", "neutral"] },
+        "stats": { "$ref": "#/$defs/stats_light" },
+        "hp": { "$ref": "#/$defs/hp" },
+        "conditions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "intent": { "type": "string", "minLength": 1 },
+        "notes": { "type": "string", "minLength": 1 }
+      }
+    },
+    "rules_movement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["diagonal", "through_allies", "through_enemies"],
+      "properties": {
+        "diagonal": { "enum": ["allowed", "disallowed"] },
+        "through_allies": { "type": "boolean" },
+        "through_enemies": { "type": "boolean" }
+      }
+    },
+    "rules_combat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["initiative", "criticals", "opportunity_attacks"],
+      "properties": {
+        "initiative": { "enum": ["fixed_order", "roll"] },
+        "criticals": { "type": "boolean" },
+        "opportunity_attacks": { "type": "boolean" }
+      }
+    },
+    "rules_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill_system", "default_dc"],
+      "properties": {
+        "skill_system": { "enum": ["simple_dc"] },
+        "default_dc": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "rules_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["narration_sentences_max", "ask_questions_max", "rules_explain_brief"],
+      "properties": {
+        "narration_sentences_max": { "type": "integer", "minimum": 1, "maximum": 12 },
+        "ask_questions_max": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "rules_explain_brief": { "type": "boolean" }
+      }
+    },
+    "rules_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["movement", "combat", "checks", "style"],
+      "properties": {
+        "movement": { "$ref": "#/$defs/rules_movement" },
+        "combat": { "$ref": "#/$defs/rules_combat" },
+        "checks": { "$ref": "#/$defs/rules_checks" },
+        "style": { "$ref": "#/$defs/rules_style" }
+      }
+    },
+    "event_log_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["i", "actor_id", "intent", "input", "result", "delta"],
+      "properties": {
+        "i": { "type": "integer", "minimum": 1 },
+        "actor_id": { "type": "string", "minLength": 1 },
+        "intent": { "type": "string", "minLength": 1 },
+        "input": { "type": "string", "minLength": 1 },
+        "result": { "type": "string", "minLength": 1 },
+        "delta": { "type": "string", "minLength": 1 }
+      }
+    },
+    "log_compact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "events"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 1 },
+        "events": {
+          "type": "array",
+          "maxItems": 20,
+          "items": { "$ref": "#/$defs/event_log_item" }
+        }
+      }
+    }
+  }
+}

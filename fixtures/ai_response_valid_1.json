@@ -1,0 +1,20 @@
+{
+  "narration": "Seren dashes across the cobblestones, closing the gap to Captain Voss in a single stride.",
+  "adjudication": "Movement: 1 square. Attack roll 19 vs AC 15 hits. 7 slashing damage dealt.",
+  "map_updates": [
+    {
+      "op": "move_entity",
+      "entity_id": "pc-01",
+      "from": { "x": 5, "y": 6 },
+      "to": { "x": 6, "y": 6 }
+    }
+  ],
+  "state_updates": [
+    {
+      "op": "set_hp",
+      "entity_id": "npc-02",
+      "current": 23
+    }
+  ],
+  "questions": []
+}

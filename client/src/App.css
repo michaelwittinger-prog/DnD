@@ -1,0 +1,107 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0e0e1a;
+  color: #ccccdd;
+  font-family: sans-serif;
+}
+
+.app-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background-color: #16162a;
+  padding: 12px 24px;
+  border-bottom: 1px solid #333;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-header h1 {
+  font-size: 18px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.server-badge {
+  font-size: 12px;
+  color: #888899;
+  margin-left: 12px;
+}
+
+.app-main {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  flex: 1;
+  align-items: flex-start;
+}
+
+.battlemap-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.info-panel-container {
+  flex-shrink: 0;
+}
+
+/* ── Selection bar ──────────────────────────────────────────────────── */
+
+.selection-bar {
+  background-color: #1e1e2e;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  color: #ccccdd;
+}
+
+/* ── Action bar & buttons ───────────────────────────────────────────── */
+
+.action-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.action-btn {
+  background-color: #2a2a44;
+  color: #ccccdd;
+  border: 1px solid #555;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.action-btn:hover:not(:disabled) {
+  background-color: #3a3a5a;
+  border-color: #777;
+}
+
+.action-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.reset-btn {
+  background-color: #3a2020;
+  border-color: #664444;
+}
+
+.reset-btn:hover {
+  background-color: #553030;
+  border-color: #886666;
+}

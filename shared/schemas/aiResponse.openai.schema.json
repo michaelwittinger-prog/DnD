@@ -1,0 +1,561 @@
+{
+  "title": "AI GM Response Schema MVP",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "narration",
+    "adjudication",
+    "map_updates",
+    "state_updates",
+    "questions"
+  ],
+  "properties": {
+    "narration": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Short in character narration for players. Plain text only."
+    },
+    "adjudication": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Brief rules based explanation of what was resolved and why."
+    },
+    "map_updates": {
+      "type": "array",
+      "description": "Operations that update the battlemap. Apply in order.",
+      "items": {
+        "$ref": "#/$defs/map_update"
+      }
+    },
+    "state_updates": {
+      "type": "array",
+      "description": "Operations that update the game state. Apply in order.",
+      "items": {
+        "$ref": "#/$defs/state_update"
+      }
+    },
+    "questions": {
+      "type": "array",
+      "description": "Clarifying questions when the player action is ambiguous. Keep short and limited.",
+      "maxItems": 2,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "pos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "y": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "map_update": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/move_entity"
+        },
+        {
+          "$ref": "#/$defs/spawn_entity"
+        },
+        {
+          "$ref": "#/$defs/remove_entity"
+        },
+        {
+          "$ref": "#/$defs/add_object"
+        },
+        {
+          "$ref": "#/$defs/update_object_state"
+        },
+        {
+          "$ref": "#/$defs/remove_object"
+        }
+      ]
+    },
+    "state_update": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/set_hp"
+        },
+        {
+          "$ref": "#/$defs/add_condition"
+        },
+        {
+          "$ref": "#/$defs/remove_condition"
+        },
+        {
+          "$ref": "#/$defs/set_active_entity"
+        },
+        {
+          "$ref": "#/$defs/advance_turn"
+        },
+        {
+          "$ref": "#/$defs/add_event_log"
+        },
+        {
+          "$ref": "#/$defs/update_summary"
+        }
+      ]
+    },
+    "move_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "entity_id",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "op": {
+          "const": "move_entity"
+        },
+        "entity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "from": {
+          "$ref": "#/$defs/pos"
+        },
+        "to": {
+          "$ref": "#/$defs/pos"
+        }
+      }
+    },
+    "spawn_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "entity"
+      ],
+      "properties": {
+        "op": {
+          "const": "spawn_entity"
+        },
+        "entity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "name",
+            "type",
+            "role",
+            "stats",
+            "hp",
+            "conditions",
+            "pos",
+            "token"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "type": {
+              "enum": [
+                "player",
+                "npc"
+              ]
+            },
+            "role": {
+              "enum": [
+                "pc",
+                "enemy",
+                "ally",
+                "neutral"
+              ]
+            },
+            "stats": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ac",
+                "speed",
+                "attack_bonus",
+                "damage"
+              ],
+              "properties": {
+                "ac": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "speed": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "attack_bonus": {
+                  "type": "integer"
+                },
+                "damage": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "hp": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "current",
+                "max"
+              ],
+              "properties": {
+                "current": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "max": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "pos": {
+              "$ref": "#/$defs/pos"
+            },
+            "token": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "shape",
+                "label"
+              ],
+              "properties": {
+                "shape": {
+                  "enum": [
+                    "circle",
+                    "square"
+                  ]
+                },
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 6
+                }
+              }
+            },
+            "intent": {
+              "type": "string"
+            },
+            "notes": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "remove_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "entity_id"
+      ],
+      "properties": {
+        "op": {
+          "const": "remove_entity"
+        },
+        "entity_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "add_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "object"
+      ],
+      "properties": {
+        "op": {
+          "const": "add_object"
+        },
+        "object": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "name",
+            "pos",
+            "blocks_movement",
+            "blocks_line_of_sight"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "type": "string",
+              "minLength": 1
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pos": {
+              "$ref": "#/$defs/pos"
+            },
+            "blocks_movement": {
+              "type": "boolean"
+            },
+            "blocks_line_of_sight": {
+              "type": "boolean"
+            },
+            "state": {
+              "type": "object",
+              "description": "Object state bag, e.g. open true. Keep small.",
+              "additionalProperties": false
+            }
+          }
+        }
+      }
+    },
+    "update_object_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "object_id",
+        "patch"
+      ],
+      "properties": {
+        "op": {
+          "const": "update_object_state"
+        },
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "patch": {
+          "type": "object",
+          "description": "Partial update for object state keys.",
+          "additionalProperties": false
+        }
+      }
+    },
+    "remove_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "object_id"
+      ],
+      "properties": {
+        "op": {
+          "const": "remove_object"
+        },
+        "object_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "set_hp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "entity_id",
+        "current"
+      ],
+      "properties": {
+        "op": {
+          "const": "set_hp"
+        },
+        "entity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "current": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "add_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "entity_id",
+        "condition"
+      ],
+      "properties": {
+        "op": {
+          "const": "add_condition"
+        },
+        "entity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "condition": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "remove_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "entity_id",
+        "condition"
+      ],
+      "properties": {
+        "op": {
+          "const": "remove_condition"
+        },
+        "entity_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "condition": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "set_active_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "entity_id"
+      ],
+      "properties": {
+        "op": {
+          "const": "set_active_entity"
+        },
+        "entity_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "advance_turn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "round",
+        "turn_index",
+        "active_entity_id"
+      ],
+      "properties": {
+        "op": {
+          "const": "advance_turn"
+        },
+        "round": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "turn_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active_entity_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "add_event_log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "event"
+      ],
+      "properties": {
+        "op": {
+          "const": "add_event_log"
+        },
+        "event": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "i",
+            "actor_id",
+            "intent",
+            "input",
+            "result",
+            "delta"
+          ],
+          "properties": {
+            "i": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "actor_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "intent": {
+              "type": "string",
+              "minLength": 1
+            },
+            "input": {
+              "type": "string",
+              "minLength": 1
+            },
+            "result": {
+              "type": "string",
+              "minLength": 1
+            },
+            "delta": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "update_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "summary"
+      ],
+      "properties": {
+        "op": {
+          "const": "update_summary"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

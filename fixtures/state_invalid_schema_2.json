@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "createdAt": "not-a-date"
+  },
+  "session": {
+    "id": "session-bad-2",
+    "name": "Bad Types Test",
+    "status": "active"
+  },
+  "ruleset": {
+    "system": "D&D",
+    "edition": "5e"
+  },
+  "timeline": {
+    "currentTime": "Day 1",
+    "turn": 0
+  },
+  "world": {
+    "name": "TestWorld"
+  },
+  "map": {
+    "name": "TestMap",
+    "dimensions": { "width": 10, "height": 10 }
+  },
+  "entities": [],
+  "inventory": {
+    "items": []
+  },
+  "quests": [],
+  "flags": {},
+  "rng": { "seed": 1, "lastRoll": { "sides": 20, "result": 1 } },
+  "logs": [
+    {
+      "id": "log-bad",
+      "message": "Test",
+      "level": "info",
+      "timestamp": "also-not-a-date"
+    }
+  ]
+}

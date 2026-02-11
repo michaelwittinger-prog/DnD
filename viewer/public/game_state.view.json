@@ -1,0 +1,146 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-02-10T20:00:00Z",
+    "updatedAt": "2026-02-11T11:15:03.519Z",
+    "source": "example"
+  },
+  "session": {
+    "id": "session-001",
+    "name": "Shadows of Ravenford",
+    "status": "active",
+    "gm": "Morgan",
+    "players": [
+      "Ava",
+      "Liam",
+      "Noah"
+    ]
+  },
+  "ruleset": {
+    "system": "D&D",
+    "edition": "5e",
+    "houseRules": [
+      "Criticals maximize damage"
+    ]
+  },
+  "timeline": {
+    "currentTime": "15th of Spring, 1492 DR",
+    "turn": 12,
+    "events": [
+      {
+        "id": "event-01",
+        "label": "Arrived at Ravenford",
+        "timestamp": "2026-02-10T20:10:00Z"
+      }
+    ]
+  },
+  "world": {
+    "name": "Elaria",
+    "region": "Northern Marches",
+    "locations": [
+      {
+        "id": "loc-01",
+        "name": "Ravenford",
+        "description": "A misty riverside town."
+      }
+    ]
+  },
+  "map": {
+    "name": "Ravenford Square",
+    "dimensions": {
+      "width": 20,
+      "height": 15
+    },
+    "tiles": [
+      {
+        "x": 3,
+        "y": 4,
+        "terrain": "cobblestone"
+      },
+      {
+        "x": 4,
+        "y": 4,
+        "terrain": "cobblestone"
+      },
+      {
+        "x": 5,
+        "y": 4,
+        "terrain": "fountain"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "pc-01",
+      "name": "Seren",
+      "type": "player",
+      "stats": {
+        "hp": 24,
+        "ac": 16
+      },
+      "position": {
+        "x": 6,
+        "y": 6
+      }
+    },
+    {
+      "id": "npc-02",
+      "name": "Captain Voss",
+      "type": "npc",
+      "stats": {
+        "faction": "Raven Guard",
+        "hp": 23
+      },
+      "position": {
+        "x": 7,
+        "y": 6
+      }
+    }
+  ],
+  "inventory": {
+    "gold": 128,
+    "items": [
+      {
+        "id": "item-01",
+        "name": "Healing Potion",
+        "quantity": 2
+      },
+      {
+        "id": "item-02",
+        "name": "Rope",
+        "quantity": 1
+      }
+    ]
+  },
+  "quests": [
+    {
+      "id": "quest-01",
+      "title": "Find the Lost Courier",
+      "status": "active",
+      "objectives": [
+        "Question the townsfolk",
+        "Search the old road"
+      ]
+    }
+  ],
+  "flags": {
+    "metCaptainVoss": true,
+    "dangerLevel": "low",
+    "stormWarning": false
+  },
+  "rng": {
+    "seed": 987654321,
+    "lastRoll": {
+      "sides": 20,
+      "result": 14
+    }
+  },
+  "logs": [
+    {
+      "id": "log-01",
+      "message": "The party entered the town square.",
+      "level": "info",
+      "timestamp": "2026-02-10T20:20:00Z"
+    }
+  ]
+}

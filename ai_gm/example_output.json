@@ -1,0 +1,37 @@
+{
+  "narration": "Seren dashes across the cobblestones, closing the gap to Captain Voss in a single stride. She brings her blade around in a swift arc. The edge bites through his guard and draws blood.",
+  "adjudication": "Movement: Seren moves from (5,6) to (6,6), 1 square (5 ft). Her speed allows up to 30 ft of movement, so this is permitted (MOVE_01). Attack: Using the last roll of 14 plus attack bonus +5 gives a total of 19. Captain Voss has AC 15. 19 >= 15, so the attack hits (ATK_01). Damage: 1d8+3 averages to 7 slashing damage. Captain Voss HP was 30, reduced to 23 (DMG_01). Turn ends and advances to the next entity in initiative order (TURN_01).",
+  "map_updates": [
+    {
+      "op": "move_entity",
+      "entity_id": "pc-01",
+      "from": { "x": 5, "y": 6 },
+      "to": { "x": 6, "y": 6 }
+    }
+  ],
+  "state_updates": [
+    {
+      "op": "set_hp",
+      "entity_id": "npc-02",
+      "current": 23
+    },
+    {
+      "op": "add_event_log",
+      "event": {
+        "i": 1,
+        "actor_id": "pc-01",
+        "intent": "move_and_attack",
+        "input": "Seren moves to 6,6 and attacks Captain Voss",
+        "result": "hit, 7 slashing damage",
+        "delta": "pc-01 moved (5,6) to (6,6); npc-02 HP 30 to 23"
+      }
+    },
+    {
+      "op": "advance_turn",
+      "round": 1,
+      "turn_index": 1,
+      "active_entity_id": "npc-02"
+    }
+  ],
+  "questions": []
+}

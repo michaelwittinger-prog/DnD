@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "schemaVersion": "1.0.0",
+    "createdAt": "2026-02-10T20:00:00Z"
+  },
+  "session": {
+    "id": "session-inv-1",
+    "name": "Duplicate Entity IDs",
+    "status": "active"
+  },
+  "ruleset": {
+    "system": "D&D",
+    "edition": "5e"
+  },
+  "timeline": {
+    "currentTime": "Day 1",
+    "turn": 0
+  },
+  "world": {
+    "name": "TestWorld"
+  },
+  "map": {
+    "name": "TestMap",
+    "dimensions": { "width": 10, "height": 10 }
+  },
+  "entities": [
+    {
+      "id": "pc-01",
+      "name": "Alpha",
+      "type": "player",
+      "stats": { "hp": 10 },
+      "position": { "x": 1, "y": 1 }
+    },
+    {
+      "id": "pc-01",
+      "name": "Beta",
+      "type": "npc",
+      "stats": { "hp": 8 },
+      "position": { "x": 2, "y": 2 }
+    }
+  ],
+  "inventory": { "items": [] },
+  "quests": [],
+  "flags": {},
+  "rng": { "seed": 1, "lastRoll": { "sides": 20, "result": 10 } },
+  "logs": [
+    {
+      "id": "log-01",
+      "message": "Test",
+      "level": "info",
+      "timestamp": "2026-02-10T20:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,101 @@
+[
+  {
+    "id": "TURN_01",
+    "title": "Turn Structure",
+    "summary": "Each entity takes one turn per round in initiative order. A turn consists of a movement phase and an action phase.",
+    "preconditions": [
+      "It is the entity's turn according to the current turn order."
+    ],
+    "resolution_steps": [
+      "Confirm the acting entity matches the active entity in the timeline.",
+      "Process the movement phase if the entity declares movement.",
+      "Process the action phase if the entity declares an action.",
+      "End the turn and advance to the next entity in initiative order."
+    ],
+    "outputs": [
+      "advance_turn state update with the next active entity id, round number, and turn index."
+    ],
+    "notes": "If the entity takes no action, the turn still ends and advances."
+  },
+  {
+    "id": "MOVE_01",
+    "title": "Movement",
+    "summary": "An entity may move up to its speed value in feet during the movement phase of its turn. Each grid square equals 5 feet.",
+    "preconditions": [
+      "It is the entity's turn.",
+      "The entity has a speed value greater than zero.",
+      "The destination square is within the entity's remaining movement range.",
+      "The destination square is not blocked by terrain or another entity."
+    ],
+    "resolution_steps": [
+      "Calculate the distance in squares from the current position to the target position.",
+      "Multiply the square count by 5 to get distance in feet.",
+      "Verify the distance does not exceed the entity's speed.",
+      "Verify no blocking terrain or entity occupies the destination.",
+      "Emit a move_entity map update with the from and to positions."
+    ],
+    "outputs": [
+      "move_entity map update."
+    ],
+    "notes": "Diagonal movement costs 5 feet per square in this simplified model."
+  },
+  {
+    "id": "ATK_01",
+    "title": "Basic Melee Attack",
+    "summary": "An entity may make one melee attack against an adjacent target during the action phase of its turn.",
+    "preconditions": [
+      "It is the entity's turn and the action phase has not been used.",
+      "The target is adjacent (within 1 square) to the attacker.",
+      "The attacker has an attack_bonus and damage value in its stats."
+    ],
+    "resolution_steps": [
+      "Determine the attack roll result. Use the rng.lastRoll value if available, otherwise use the value provided in the game state.",
+      "Add the attacker's attack_bonus to the roll result.",
+      "Compare the total to the target's AC.",
+      "If the total meets or exceeds the AC, the attack hits. Proceed to damage (DMG_01).",
+      "If the total is below the AC, the attack misses. Record the miss."
+    ],
+    "outputs": [
+      "add_event_log state update recording the attack roll, hit or miss, and relevant values."
+    ],
+    "notes": "Natural 20 always hits. Natural 1 always misses. Critical hit damage rules are deferred to house rules if present."
+  },
+  {
+    "id": "DMG_01",
+    "title": "Damage Application",
+    "summary": "When an attack hits, apply damage to the target by reducing its current hit points.",
+    "preconditions": [
+      "The attack was resolved as a hit by ATK_01.",
+      "The damage value is known from the attacker's stats."
+    ],
+    "resolution_steps": [
+      "Parse the damage expression from the attacker's stats.",
+      "Calculate the damage total. For deterministic resolution, use the average rounded down unless rng permits a roll.",
+      "Subtract the damage from the target's current HP. HP cannot go below 0.",
+      "Emit a set_hp state update with the new current HP value.",
+      "If HP reaches 0, the entity is incapacitated. Apply the incapacitated condition via COND_01."
+    ],
+    "outputs": [
+      "set_hp state update.",
+      "Optionally add_condition state update if HP reaches 0."
+    ],
+    "notes": "Resistance and vulnerability modifiers are not included in this minimal ruleset."
+  },
+  {
+    "id": "COND_01",
+    "title": "Condition Application and Expiry",
+    "summary": "Conditions are status effects applied to entities. They persist until explicitly removed or until their expiry criteria are met.",
+    "preconditions": [
+      "A rule or effect specifies that a condition should be applied or removed."
+    ],
+    "resolution_steps": [
+      "To apply: emit an add_condition state update with the entity id and condition name.",
+      "To remove: emit a remove_condition state update with the entity id and condition name.",
+      "At the start of each turn, check if any conditions on the active entity have expired. If so, remove them."
+    ],
+    "outputs": [
+      "add_condition or remove_condition state update."
+    ],
+    "notes": "Condition names must be consistent strings. Examples: incapacitated, prone, stunned, poisoned."
+  }
+]

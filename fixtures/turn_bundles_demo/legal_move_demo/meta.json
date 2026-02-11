@@ -1,0 +1,11 @@
+{
+  "createdAt": "2026-02-11T01:00:00Z",
+  "openaiModel": "fixture",
+  "seed": null,
+  "inputStatePath": "game_state.example.json",
+  "inputIntentPath": "player_intent.example.json",
+  "aiResponseSource": "fixture",
+  "gatekeeperResult": "passed",
+  "failureGate": null,
+  "gitCommit": null
+}
