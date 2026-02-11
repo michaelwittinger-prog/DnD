@@ -18,7 +18,6 @@
  * Browser: uses proposeActionMock() with keyword matching
  */
 
-import { getClient } from "../adapters/openaiClient.mjs";
 import { buildMessages } from "./aiPromptTemplate.mjs";
 import { parseAiAction } from "./aiActionParser.mjs";
 
@@ -111,6 +110,8 @@ export async function proposeAction(state, playerInput, opts = {}) {
   let rawText = "";
 
   try {
+    // Dynamic import: keeps browser module tree clean (no npm "openai" dep)
+    const { getClient } = await import("../adapters/openaiClient.mjs");
     const client = getClient();
 
     const requestParams = {
