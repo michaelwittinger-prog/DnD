@@ -73,12 +73,16 @@ docs/
   mir_event_model.md          — EngineEvent definitions (MIR 1.4)
   mir_engine_contract.md      — Engine contract and determinism guarantee (MIR 1.4)
   mir_ai_integration.md       — AI proposal flow and safety layer (MIR 3.1)
+  mir_replay_format.md        — Replay bundle format and runner (MIR 3.4)
 src/ai/
   aiPromptTemplate.mjs        — Prompt builder (sanitized state + action schema)
   aiActionParser.mjs           — Safety layer: JSON parse, type whitelist, field strip
   aiClient.mjs                 — AI proposal orchestrator (API + mock modes)
 src/server/
   aiBridge.mjs                 — Local AI bridge server (MIR 3.3, port 3002)
+src/replay/
+  hash.mjs                     — Deterministic state hashing (FNV-1a, canonical JSON)
+  runReplay.mjs                — Replay runner (schema + invariant + hash verification)
 src/engine/
   applyAction.mjs             — Core state transition function
   movement.mjs                — MOVE handler
@@ -109,4 +113,10 @@ tests/
   ai_parser_test.mjs          — 82 parser contract tests (MIR 3.2)
   ai_prompt_test.mjs          — 50 prompt snapshot tests (MIR 3.2)
   ai_bridge_test.mjs          — 78 bridge unit tests (MIR 3.3)
+  replay_test.mjs             — 40 replay runner tests (MIR 3.4)
+scripts/
+  run-replay.mjs              — CLI replay runner
+replays/
+  combat_flow.replay.json     — Full combat flow replay (4 steps)
+  rejected_move.replay.json   — Rejected + valid move replay (2 steps)
 ```

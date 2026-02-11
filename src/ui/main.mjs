@@ -9,6 +9,7 @@
 import { applyAction } from "../engine/applyAction.mjs";
 import { proposeActionMock } from "../ai/aiClient.mjs";
 import { explorationExample } from "../state/exampleStates.mjs";
+import { stateHash } from "../replay/hash.mjs";
 import { renderGrid } from "./renderGrid.mjs";
 import { renderTokens } from "./renderTokens.mjs";
 import { initInputController } from "./inputController.mjs";
@@ -24,6 +25,10 @@ let gameState = structuredClone(explorationExample);
 // Enable seeded RNG so initiative and attacks work deterministically
 gameState.rng.mode = "seeded";
 gameState.rng.seed = "ui-session-" + Date.now();
+
+// Track session for replay export
+const sessionInitialState = structuredClone(gameState);
+const sessionActions = [];
 
 // ── DOM refs ────────────────────────────────────────────────────────────
 
@@ -180,6 +185,9 @@ function findEntity(id) {
 function dispatch(action) {
   const result = applyAction(gameState, action);
 
+  // Track for replay export
+  sessionActions.push(structuredClone(action));
+
   if (result.success) {
     gameState = result.nextState;
     showFeedback(`✓ ${action.type}`, true);
@@ -280,6 +288,82 @@ function showAiFeedback(msg, className) {
     aiFeedbackEl.className = className || "";
   }
 }
+
+// ── Replay Export/Import ────────────────────────────────────────────
+
+const replayFeedbackEl = document.getElementById("replay-feedback");
+
+function showReplayFeedback(msg, className) {
+  if (replayFeedbackEl) {
+    replayFeedbackEl.textContent = msg;
+    replayFeedbackEl.className = className || "";
+  }
+}
+
+document.getElementById("btn-export-replay")?.addEventListener("click", () => {
+  const bundle = {
+    meta: {
+      id: "session-" + Date.now(),
+      createdAt: new Date().toISOString(),
+      schemaVersion: "0.1.0",
+      engineVersion: "1.4",
+      notes: `UI session export (${sessionActions.length} actions)`,
+    },
+    initialState: sessionInitialState,
+    steps: sessionActions.map((action) => ({ action })),
+    final: { expectedStateHash: stateHash(gameState) },
+  };
+
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `replay-${bundle.meta.id}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showReplayFeedback(`✓ Exported ${sessionActions.length} steps`, "success");
+});
+
+document.getElementById("replay-file-input")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  e.target.value = ""; // reset for re-import
+
+  try {
+    const text = await file.text();
+    const bundle = JSON.parse(text);
+
+    if (!bundle.initialState || !Array.isArray(bundle.steps)) {
+      showReplayFeedback("✗ Invalid replay bundle", "error");
+      return;
+    }
+
+    // Load initial state
+    gameState = structuredClone(bundle.initialState);
+    showReplayFeedback(`⏳ Replaying ${bundle.steps.length} steps…`, "pending");
+    render();
+
+    // Replay steps
+    let stepOk = 0;
+    for (const step of bundle.steps) {
+      const result = applyAction(gameState, step.action);
+      gameState = result.nextState;
+      stepOk++;
+      render();
+    }
+
+    // Check final hash
+    const finalHash = stateHash(gameState);
+    if (bundle.final?.expectedStateHash && finalHash !== bundle.final.expectedStateHash) {
+      showReplayFeedback(`⚠ ${stepOk} steps replayed, hash mismatch: ${finalHash}`, "error");
+    } else {
+      showReplayFeedback(`✓ ${stepOk} steps replayed (hash: ${finalHash})`, "success");
+    }
+  } catch (err) {
+    showReplayFeedback(`✗ ${err.message}`, "error");
+  }
+});
 
 // ── Selection (UI-only state change) ────────────────────────────────────
 

@@ -231,6 +231,41 @@ body {
   user-select: none;
 }
 
+/* ── Replay ─────────────────────────────────────────────────────────── */
+
+.replay-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.replay-controls button,
+.replay-controls .file-btn {
+  flex: 1;
+  padding: 0.4rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #2a2a2a;
+  color: #eee;
+  text-align: center;
+}
+
+.replay-controls button:hover,
+.replay-controls .file-btn:hover {
+  background: #3a3a3a;
+}
+
+#replay-feedback {
+  font-size: 0.85rem;
+  margin-top: 0.3rem;
+  min-height: 1.2em;
+}
+
+#replay-feedback.success { color: #6f6; }
+#replay-feedback.error { color: #f66; }
+#replay-feedback.pending { color: #ff6; }
+
 #ai-debug {
   margin-top: 0.3rem;
   padding: 0.4rem;

@@ -1,0 +1,303 @@
+{
+  "meta": {
+    "id": "replay-combat-flow",
+    "createdAt": "2026-02-11T18:00:00Z",
+    "schemaVersion": "0.1.0",
+    "engineVersion": "1.4",
+    "notes": "Full combat flow: move, roll initiative, attack, end turn"
+  },
+  "initialState": {
+    "schemaVersion": "0.1.0",
+    "campaignId": "campaign-alpha",
+    "sessionId": "session-001",
+    "timestamp": "2026-02-11T12:00:00Z",
+    "rng": {
+      "mode": "seeded",
+      "seed": "replay-demo-001",
+      "lastRolls": []
+    },
+    "map": {
+      "id": "map-tavern",
+      "name": "The Rusty Tankard",
+      "grid": {
+        "type": "square",
+        "size": {
+          "width": 15,
+          "height": 10
+        },
+        "cellSize": 5
+      },
+      "terrain": [
+        {
+          "x": 3,
+          "y": 0,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 3,
+          "y": 1,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 3,
+          "y": 2,
+          "type": "blocked",
+          "blocksMovement": true,
+          "blocksVision": true
+        },
+        {
+          "x": 7,
+          "y": 4,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 7,
+          "y": 5,
+          "type": "difficult",
+          "blocksMovement": false
+        },
+        {
+          "x": 8,
+          "y": 4,
+          "type": "difficult",
+          "blocksMovement": false
+        }
+      ],
+      "fogOfWarEnabled": false
+    },
+    "entities": {
+      "players": [
+        {
+          "id": "pc-seren",
+          "kind": "player",
+          "name": "Seren Ashford",
+          "position": {
+            "x": 2,
+            "y": 3
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 22,
+            "hpMax": 28,
+            "ac": 16,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-longsword",
+              "name": "Longsword",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "melee"
+              ]
+            },
+            {
+              "id": "item-shield",
+              "name": "Shield",
+              "qty": 1,
+              "tags": [
+                "armor"
+              ]
+            }
+          ],
+          "token": {
+            "style": "mini",
+            "spriteKey": "seren-paladin"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-seren"
+          }
+        },
+        {
+          "id": "pc-miri",
+          "kind": "player",
+          "name": "Miri Thistledown",
+          "position": {
+            "x": 4,
+            "y": 6
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 18,
+            "hpMax": 22,
+            "ac": 13,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [
+            {
+              "id": "item-shortbow",
+              "name": "Shortbow",
+              "qty": 1,
+              "tags": [
+                "weapon",
+                "ranged"
+              ]
+            },
+            {
+              "id": "item-arrows",
+              "name": "Arrows",
+              "qty": 20,
+              "tags": [
+                "ammo"
+              ]
+            }
+          ],
+          "token": {
+            "style": "standee",
+            "spriteKey": "miri-ranger"
+          },
+          "controller": {
+            "type": "human",
+            "playerId": "pc-miri"
+          }
+        }
+      ],
+      "npcs": [
+        {
+          "id": "npc-barkeep",
+          "kind": "npc",
+          "name": "Old Haggard",
+          "position": {
+            "x": 6,
+            "y": 2
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 8,
+            "hpMax": 8,
+            "ac": 10,
+            "movementSpeed": 6
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "mini",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        }
+      ],
+      "objects": [
+        {
+          "id": "obj-table1",
+          "kind": "object",
+          "name": "Wooden Table",
+          "position": {
+            "x": 5,
+            "y": 4
+          },
+          "size": "M",
+          "stats": {
+            "hpCurrent": 15,
+            "hpMax": 15,
+            "ac": 5,
+            "movementSpeed": 0
+          },
+          "conditions": [],
+          "inventory": [],
+          "token": {
+            "style": "pawn",
+            "spriteKey": null
+          },
+          "controller": {
+            "type": "ai",
+            "playerId": null
+          }
+        }
+      ]
+    },
+    "combat": {
+      "mode": "exploration",
+      "round": 0,
+      "activeEntityId": null,
+      "initiativeOrder": []
+    },
+    "log": {
+      "events": [
+        {
+          "id": "evt-001",
+          "timestamp": "2026-02-11T11:55:00Z",
+          "type": "session_start",
+          "payload": {
+            "message": "Session began in The Rusty Tankard."
+          }
+        }
+      ]
+    },
+    "ui": {
+      "selectedEntityId": null,
+      "hoveredCell": null
+    }
+  },
+  "steps": [
+    {
+      "action": {
+        "type": "MOVE",
+        "entityId": "pc-seren",
+        "path": [
+          {
+            "x": 2,
+            "y": 4
+          },
+          {
+            "x": 2,
+            "y": 5
+          }
+        ]
+      },
+      "expectedEvents": [
+        {
+          "type": "MOVE_APPLIED"
+        }
+      ]
+    },
+    {
+      "action": {
+        "type": "ROLL_INITIATIVE"
+      },
+      "expectedEvents": [
+        {
+          "type": "INITIATIVE_ROLLED"
+        }
+      ]
+    },
+    {
+      "action": {
+        "type": "ATTACK",
+        "attackerId": "pc-seren",
+        "targetId": "pc-miri"
+      },
+      "expectedEvents": [
+        {
+          "type": "ATTACK_RESOLVED"
+        }
+      ]
+    },
+    {
+      "action": {
+        "type": "END_TURN",
+        "entityId": "pc-seren"
+      },
+      "expectedEvents": [
+        {
+          "type": "TURN_ENDED"
+        }
+      ]
+    }
+  ],
+  "final": {
+    "expectedStateHash": "5cd19c3c82ba2f76"
+  }
+}
