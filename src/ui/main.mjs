@@ -20,6 +20,7 @@ import { narrateEvent } from "../engine/narrateEvent.mjs";
 import { executeNpcTurn, simulateCombat } from "../engine/combatController.mjs";
 import { isNpcTurn } from "../engine/npcTurnStrategy.mjs";
 import { findPath, isAdjacent } from "../engine/pathfinding.mjs";
+import { initSounds, setSoundEnabled, isSoundEnabled, playMove, playHit, playMiss, playKill, playInitiative, playTurnStart, playError, playCombatEnd } from "./sounds.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -130,16 +131,32 @@ function renderSelectedInfo() {
 
 function renderInitiativeOrder() {
   if (gameState.combat.mode !== "combat") {
-    initiativeListEl.innerHTML = "<li>—</li>"; return;
+    initiativeListEl.innerHTML = `<div class="init-empty">No combat active</div>`;
+    return;
   }
   initiativeListEl.innerHTML = gameState.combat.initiativeOrder.map((id) => {
     const ent = findEntity(id);
-    const name = ent ? ent.name : id;
+    if (!ent) return "";
     const isActive = id === gameState.combat.activeEntityId;
-    const isDead = ent?.conditions.includes("dead");
-    let cls = isActive ? "active" : "";
-    if (isDead) cls += " dead";
-    return `<li class="${cls}">${isActive ? "▸ " : ""}${name}${isDead ? " 💀" : ""}</li>`;
+    const isDead = ent.conditions.includes("dead");
+    const hpPct = ent.stats.hpMax > 0 ? Math.round((ent.stats.hpCurrent / ent.stats.hpMax) * 100) : 0;
+    const hpColor = hpPct > 60 ? "#4caf50" : hpPct > 25 ? "#ff9800" : "#f44336";
+    const kindIcon = ent.kind === "player" ? "🛡" : ent.kind === "npc" ? "👹" : "📦";
+    const conditions = ent.conditions.filter(c => c !== "dead");
+    const condIcons = conditions.map(c => {
+      const map = { stunned: "💫", poisoned: "☠", prone: "⬇", blessed: "✨", burning: "🔥" };
+      return map[c] || `[${c}]`;
+    }).join(" ");
+    const cls = `init-entry${isActive ? " init-active" : ""}${isDead ? " init-dead" : ""}`;
+    return `<div class="${cls}">
+      <div class="init-row">
+        <span class="init-icon">${isDead ? "💀" : kindIcon}</span>
+        <span class="init-name">${ent.name}</span>
+        <span class="init-hp-text">${ent.stats.hpCurrent}/${ent.stats.hpMax}</span>
+      </div>
+      <div class="init-hp-bar-bg"><div class="init-hp-bar" style="width:${hpPct}%;background:${hpColor}"></div></div>
+      ${condIcons ? `<div class="init-conditions">${condIcons}</div>` : ""}
+    </div>`;
   }).join("");
 }
 
@@ -249,6 +266,9 @@ function dispatch(action) {
 }
 
 function processEventVisuals(evt, prevState) {
+  if (evt.type === "MOVE_APPLIED") {
+    playMove();
+  }
   if (evt.type === "ATTACK_RESOLVED") {
     const p = evt.payload;
     const target = findEntity(p.targetId);
@@ -257,15 +277,29 @@ function processEventVisuals(evt, prevState) {
         addFloater(target.position.x, target.position.y, `-${p.damage}`, "rgba(255, 80, 80, 1)");
         if (p.targetHpAfter === 0) {
           addFloater(target.position.x, target.position.y - 0.5, "💀", "rgba(255, 255, 255, 1)");
+          playKill();
+        } else {
+          playHit();
         }
       } else {
         addFloater(target.position.x, target.position.y, "MISS", "rgba(200, 200, 200, 1)");
+        playMiss();
       }
     }
+  }
+  if (evt.type === "INITIATIVE_ROLLED") {
+    playInitiative();
+  }
+  if (evt.type === "TURN_ENDED") {
+    playTurnStart();
   }
   if (evt.type === "COMBAT_ENDED") {
     const winner = evt.payload.winner === "players" ? "🎉 Heroes Win!" : "💀 Enemies Win!";
     addNarration(winner, "combat");
+    playCombatEnd();
+  }
+  if (evt.type === "ACTION_REJECTED") {
+    playError();
   }
 }
 
@@ -640,5 +674,64 @@ requestAnimationFrame(animateFloaters);
 render();
 addNarration("🎲 MIR Tabletop Engine loaded. Select a scenario or start the demo encounter!", "info");
 
-console.log("MIR S0.8 — Tabletop Engine UI loaded");
+// ── Sound Init (requires user gesture) ──────────────────────────────────
+
+document.addEventListener("click", () => initSounds(), { once: true });
+
+// Sound toggle
+const btnSoundToggle = document.getElementById("btn-sound-toggle");
+if (btnSoundToggle) {
+  btnSoundToggle.addEventListener("click", () => {
+    initSounds();
+    setSoundEnabled(!isSoundEnabled());
+    btnSoundToggle.textContent = isSoundEnabled() ? "🔊 Sound ON" : "🔇 Sound OFF";
+    btnSoundToggle.className = isSoundEnabled() ? "btn-sound on" : "btn-sound off";
+  });
+}
+
+// ── Zoom + Pan (S1.6) ──────────────────────────────────────────────────
+
+let zoomLevel = 1;
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 2.5;
+const ZOOM_STEP = 0.1;
+const canvasWrap = document.getElementById("canvas-wrap");
+
+canvasWrap?.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP;
+  zoomLevel = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel + delta));
+  canvas.style.transform = `scale(${zoomLevel})`;
+  canvas.style.transformOrigin = "top left";
+  updateZoomDisplay();
+}, { passive: false });
+
+function updateZoomDisplay() {
+  const el = document.getElementById("zoom-display");
+  if (el) el.textContent = `${Math.round(zoomLevel * 100)}%`;
+}
+
+// Zoom buttons
+document.getElementById("btn-zoom-in")?.addEventListener("click", () => {
+  zoomLevel = Math.min(ZOOM_MAX, zoomLevel + ZOOM_STEP);
+  canvas.style.transform = `scale(${zoomLevel})`;
+  canvas.style.transformOrigin = "top left";
+  updateZoomDisplay();
+});
+document.getElementById("btn-zoom-out")?.addEventListener("click", () => {
+  zoomLevel = Math.max(ZOOM_MIN, zoomLevel - ZOOM_STEP);
+  canvas.style.transform = `scale(${zoomLevel})`;
+  canvas.style.transformOrigin = "top left";
+  updateZoomDisplay();
+});
+document.getElementById("btn-zoom-reset")?.addEventListener("click", () => {
+  zoomLevel = 1;
+  canvas.style.transform = `scale(1)`;
+  canvas.style.transformOrigin = "top left";
+  updateZoomDisplay();
+});
+
+updateZoomDisplay();
+
+console.log("MIR S1.x — Tabletop Engine UI loaded (sounds + zoom/pan + initiative tracker)");
 console.log("State:", gameState.map.name, `${gameState.map.grid.size.width}×${gameState.map.grid.size.height}`);

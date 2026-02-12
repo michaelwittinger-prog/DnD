@@ -15,11 +15,18 @@
       <h1>MIR — Tabletop Engine</h1>
       <span id="map-name"></span>
       <span id="combat-status"></span>
+      <button id="btn-sound-toggle" class="btn-sound on" title="Toggle Sound">🔊 Sound ON</button>
     </header>
 
     <div id="main">
       <div id="canvas-wrap">
         <canvas id="battlemap"></canvas>
+        <div id="zoom-controls">
+          <button id="btn-zoom-in" title="Zoom In">+</button>
+          <span id="zoom-display">100%</span>
+          <button id="btn-zoom-out" title="Zoom Out">−</button>
+          <button id="btn-zoom-reset" title="Reset Zoom">⟳</button>
+        </div>
       </div>
 
       <aside id="sidebar">
@@ -88,8 +95,8 @@
         </section>
 
         <section id="section-initiative">
-          <h2>Initiative</h2>
-          <ol id="initiative-list"></ol>
+          <h2>⚔ Initiative Tracker</h2>
+          <div id="initiative-list"></div>
         </section>
 
         <section id="section-replay">
