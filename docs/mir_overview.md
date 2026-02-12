@@ -61,10 +61,13 @@ only proposes actions that the engine validates and executes. See `docs/mir_ai_i
 
 ## File Map
 
+> Last updated: 2026-02-12 (932 tests, 17 engine modules)
+
 ```
 schemas/
   mir_gamestate.schema.json   — Canonical GameState schema (JSON Schema 2020-12)
   mir_types.schema.json       — Shared type definitions
+
 docs/
   mir_overview.md             — This file
   mir_state_model.md          — Detailed state model documentation
@@ -74,49 +77,102 @@ docs/
   mir_engine_contract.md      — Engine contract and determinism guarantee (MIR 1.4)
   mir_ai_integration.md       — AI proposal flow and safety layer (MIR 3.1)
   mir_replay_format.md        — Replay bundle format and runner (MIR 3.4)
+  mir_mvp_status.md           — Living status: features, test counts, limitations
+  mir_mvp_quickstart.md       — Quick start guide
+  mir_product_roadmap.md      — Full market pipeline from MVP to production
+  mir_demo_script.md          — Live demo walkthrough
+  mir_positioning.md          — Market positioning
+  mir_dev_practices.md        — AI session practices, timeout prevention
+
+CHANGELOG.md                  — Session-by-session development record
+
+src/core/
+  logger.mjs                  — Structured logging (info/warn/error)
+  assert.mjs                  — Runtime assertion helpers
+  violationCodes.mjs          — Machine-readable violation codes
+  index.mjs                   — Core barrel export
+
+src/engine/
+  index.mjs                   — Engine barrel export (all 17 modules)
+  applyAction.mjs             — Core state transition function (action router)
+  movement.mjs                — MOVE handler (cardinal, bounds, blocked, overlap)
+  attack.mjs                  — ATTACK handler (d20 vs AC, damage, death)
+  initiative.mjs              — ROLL_INITIATIVE / END_TURN handlers
+  rng.mjs                     — Deterministic PRNG (seeded, counter-based)
+  errors.mjs                  — Structured error codes
+  pathfinding.mjs             — A* pathfinding (cardinal, blocked terrain, occupied cells)
+  combatEnd.mjs               — Death handling, faction elimination, combat end detection
+  npcTurnStrategy.mjs         — NPC AI: chase nearest hostile, attack if adjacent
+  narrateEvent.mjs            — Human-readable event descriptions
+  combatController.mjs        — Full NPC turn execution loop, multi-round simulation
+  conditions.mjs              — 6 conditions, duration tracking, start/end-of-turn processing
+  abilities.mjs               — 5 abilities, USE_ABILITY action, range/targeting/cooldown
+
 src/ai/
   aiPromptTemplate.mjs        — Prompt builder (sanitized state + action schema)
-  aiActionParser.mjs           — Safety layer: JSON parse, type whitelist, field strip
-  aiClient.mjs                 — AI proposal orchestrator (API + mock modes)
+  aiActionParser.mjs          — Safety layer: JSON parse, type whitelist, field strip
+  aiClient.mjs                — AI proposal orchestrator (API + mock modes)
+  index.mjs                   — AI barrel export
+
 src/server/
-  aiBridge.mjs                 — Local AI bridge server (MIR 3.3, port 3002)
+  aiBridge.mjs                — Local AI bridge server (MIR 3.3, port 3002)
+  localApiServer.mjs          — Local API server (port 3030)
+
 src/replay/
-  hash.mjs                     — Deterministic state hashing (FNV-1a, canonical JSON)
-  runReplay.mjs                — Replay runner (schema + invariant + hash verification)
-src/engine/
-  applyAction.mjs             — Core state transition function
-  movement.mjs                — MOVE handler
-  attack.mjs                  — ATTACK handler
-  initiative.mjs              — ROLL_INITIATIVE / END_TURN handlers
-  rng.mjs                     — Deterministic PRNG
-  errors.mjs                  — Structured error codes
+  hash.mjs                    — Deterministic state hashing (FNV-1a, canonical JSON)
+  runReplay.mjs               — Replay runner (schema + invariant + hash verification)
+
 src/state/
   validateGameState.mjs       — DEPRECATED: re-exports from validation/index.mjs
   exampleStates.mjs           — Example states for testing
+  index.mjs                   — State barrel export
   validation/
     index.mjs                 — Unified validation: validateGameState, validateInvariants, validateAll
     invariants.mjs            — 25 game-rule invariant checks
     compiledValidate.mjs      — AUTO-GENERATED standalone schema validator (zero deps)
-scripts/
-  compile-schemas.mjs         — Pre-compiles schemas into compiledValidate.mjs
+
+src/scenarios/
+  listScenarios.mjs           — Scenario file listing
+  loadScenario.mjs            — Scenario loader with validation
+
 src/ui/
   index.html                  — Browser UI shell
   main.mjs                    — UI entry point (wires engine + renderers + input)
-  inputController.mjs         — Input handler (dispatches DeclaredActions)
-  renderGrid.mjs              — Grid renderer
-  renderTokens.mjs            — Token renderer
-  styles.css                  — UI styles
+  inputController.mjs         — Input handler (click-to-move/attack, dispatches actions)
+  renderGrid.mjs              — Grid renderer (terrain, highlights)
+  renderTokens.mjs            — Token renderer (HP bars, selection, damage floaters)
+  styles.css                  — UI styles (narration panel, HP bars, floaters)
   validateShim.mjs            — DEPRECATED: re-exports from validation/index.mjs
-  serve.mjs                   — Dev server
-tests/
-  engine_test.mjs             — 95 engine contract tests (MIR 1.4 + 2.2)
-  ai_parser_test.mjs          — 82 parser contract tests (MIR 3.2)
-  ai_prompt_test.mjs          — 50 prompt snapshot tests (MIR 3.2)
-  ai_bridge_test.mjs          — 78 bridge unit tests (MIR 3.3)
-  replay_test.mjs             — 40 replay runner tests (MIR 3.4)
+  serve.mjs                   — Dev server (auto-kill stale port, graceful shutdown)
+
 scripts/
+  compile-schemas.mjs         — Pre-compiles schemas into compiledValidate.mjs
   run-replay.mjs              — CLI replay runner
+  start-mvp.mjs               — Single-command MVP launcher
+  gen-demo-replay.mjs         — Demo replay generator
+
+tests/                         — 932 tests across 13 suites
+  engine_test.mjs             — 95 engine contract tests
+  ai_parser_test.mjs          — 82 parser contract tests
+  ai_prompt_test.mjs          — 50 prompt snapshot tests
+  ai_bridge_test.mjs          — 78 bridge unit tests
+  replay_test.mjs             — 40 replay runner tests
+  mvp_test.mjs                — 43 MVP integration tests
+  scenario_test.mjs           — 53 scenario tests
+  foundation_test.mjs         — 154 foundation tests (logger, assert, exports)
+  pathfinding_test.mjs        — 95 pathfinding tests
+  death_combat_test.mjs       — 48 death/combat end tests
+  npc_strategy_test.mjs       — 54 NPC strategy tests
+  narration_combat_controller_test.mjs — 44 narration + controller tests
+  sprint1_test.mjs            — 96 ability, condition, range tests
+
+scenarios/
+  tavern_skirmish.scenario.json   — 3v2 tavern brawl
+  corridor_ambush.scenario.json   — Narrow corridor encounter
+  open_field_duel.scenario.json   — Open 1v1 duel
+
 replays/
   combat_flow.replay.json     — Full combat flow replay (4 steps)
   rejected_move.replay.json   — Rejected + valid move replay (2 steps)
+  demo_showcase.replay.json   — Demo showcase replay
 ```

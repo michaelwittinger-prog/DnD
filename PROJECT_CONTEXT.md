@@ -293,6 +293,75 @@ The viewer is now a debug/observability UI with interactive panels:
 
 `scripts/sync-state.mjs` copies all three files.
 
+## Phase S0 — Engine Depth (Foundation → Interactive Combat)
+
+Built the engine modules needed for a real playable game:
+
+### Key files
+
+- `src/core/logger.mjs` — Structured logging (info/warn/error)
+- `src/core/assert.mjs` — Runtime assertion helpers
+- `src/engine/pathfinding.mjs` — A* pathfinding (cardinal, blocked terrain, occupied cells)
+- `src/engine/combatEnd.mjs` — Death handling, faction elimination, combat end detection
+- `src/engine/npcTurnStrategy.mjs` — NPC AI: chase nearest hostile, attack if adjacent
+- `src/engine/narrateEvent.mjs` — Human-readable event descriptions
+- `src/engine/combatController.mjs` — Full NPC turn execution loop, multi-round simulation
+
+### UI upgrades (S0.5–S0.8)
+
+- Click-to-move with pathfinding validation
+- Click-to-attack with adjacency validation
+- HP bars on all tokens
+- NPC auto-turns via combat controller
+- Narration panel with styled messages
+- Damage floaters (animated)
+- Turn indicator
+
+## Phase S1 — Abilities, Conditions, Range
+
+### Key files
+
+- `src/engine/conditions.mjs` — 6 conditions (dead, stunned, poisoned, prone, blessed, burning), duration tracking, start/end-of-turn processing, modifier queries
+- `src/engine/abilities.mjs` — 5 abilities (Firebolt, Healing Word, Sneak Attack, Poison Strike, Shield Bash), USE_ABILITY action, range/targeting/cooldown validation
+- `src/engine/index.mjs` — Barrel export for all 17 engine modules
+
+## DevOps
+
+### Port management
+
+`serve.mjs` auto-kills stale processes on port 3001 before binding.
+Graceful shutdown on SIGINT/SIGTERM/SIGHUP.
+
+### Convenience scripts
+
+| Script | Purpose |
+|--------|---------|
+| `npm run ui` | Start UI server (auto-kills stale port) |
+| `npm run ui:stop` | Kill whatever is on port 3001 |
+| `npm run test:all` | Run all 13 test suites (932 tests) |
+
+## Documentation Concept
+
+Three-layer documentation system:
+
+1. **Living status docs** — Updated after each task:
+   - `CHANGELOG.md` — Session-by-session record of what was built
+   - `docs/mir_mvp_status.md` — Current features, test counts, limitations
+   - `PROJECT_CONTEXT.md` — Architecture, phases, key files
+
+2. **Technical specs** — Updated when the spec changes:
+   - `docs/mir_action_model.md`, `mir_event_model.md`, `mir_engine_contract.md`, etc.
+
+3. **Operational docs** — Updated when new patterns are learned:
+   - `docs/mir_dev_practices.md` — Session timeout prevention, module checklist
+
+### Post-task discipline
+After every task completion:
+1. Update `CHANGELOG.md` with session summary
+2. Update `mir_mvp_status.md` test counts + features if changed
+3. Update `PROJECT_CONTEXT.md` phase status if a new phase completed
+4. Update `mir_overview.md` file map if new modules were added
+
 ## Roadmap Status
 
 - Phase 0: complete
@@ -302,4 +371,6 @@ The viewer is now a debug/observability UI with interactive panels:
 - Phase 3.5: complete (deterministic replay + turn bundles)
 - Phase 4.0: complete (viewer interaction + observability)
 - Phase 5.0: complete (player intent capture + one-click turn execution)
-- Phase 5.1+: pending
+- Phase S0: complete (pathfinding, death/combat end, NPC strategy, narration, combat controller, UI upgrade)
+- Phase S1: complete (ability system, condition system, range validation — 932 tests)
+- Phase S2+: pending (see `docs/mir_product_roadmap.md`)
