@@ -5,6 +5,26 @@
 
 ---
 
+## 2026-02-12 — Session 7: Sprint 1 Integration + Documentation System
+
+**Commit:** `4034104` | **Tests:** 932 | **Modules:** 17 engine
+
+### Built
+- **S1.2 Combat Integration** — Conditions wired into attack.mjs: stunned blocks attacks, poisoned gives disadvantage (roll twice take lower), blessed gives +2 attack, stunned gives -2 AC to target.
+- **Turn Processing** — End-of-turn: cooldown tick + condition expiry. Start-of-turn: burning DoT damage.
+- **S1.3 Difficult Terrain** — Pathfinding now costs 2 movement to enter difficult terrain cells.
+- **S1.10 Combat Log Dice Detail** — Attack events now include: `d20(14)+2=16 [disadv] vs AC 13(-2→11)`. Full dice breakdown in narration.
+- **Documentation System** — Created `CHANGELOG.md`, refreshed `mir_mvp_status.md`, `PROJECT_CONTEXT.md`, `mir_overview.md`. Defined 3-layer doc concept + post-task discipline.
+- **DevOps** — Auto-kill stale port, graceful shutdown, `npm run ui:stop`.
+
+### Commits in this session
+- `8a350d5` docs: full documentation refresh
+- `f7a9231` feat: S1.2 integration — conditions wired into combat
+- `8ffd812` feat: S1.3 — difficult terrain costs 2x
+- `4034104` feat: S1.10 — combat log with dice detail
+
+---
+
 ## 2026-02-12 — Session 6: Sprint 1 + DevOps Fixes
 
 **Commit:** `08c1928` | **Tests:** 932 | **Modules:** 17 engine
