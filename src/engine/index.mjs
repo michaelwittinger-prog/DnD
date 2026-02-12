@@ -26,3 +26,4 @@ export {
   CONDITION_DEFS,
 } from "./conditions.mjs";
 export { applyAbility, ABILITY_CATALOGUE, tickCooldowns } from "./abilities.mjs";
+export { computeVisibleCells, isCellVisible, getVisionRange } from "./visibility.mjs";

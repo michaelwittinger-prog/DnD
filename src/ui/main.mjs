@@ -701,6 +701,32 @@ if (btnSoundToggle) {
   });
 }
 
+// ── Fog of War Toggle (S1.5) ────────────────────────────────────────────
+
+const btnFogToggle = document.getElementById("btn-fog-toggle");
+if (btnFogToggle) {
+  // Sync button state with initial gameState
+  updateFogButton();
+
+  btnFogToggle.addEventListener("click", () => {
+    gameState = structuredClone(gameState);
+    gameState.map.fogOfWarEnabled = !gameState.map.fogOfWarEnabled;
+    updateFogButton();
+    render();
+    addNarration(
+      gameState.map.fogOfWarEnabled ? "🌫 Fog of War enabled" : "☀ Fog of War disabled",
+      "info"
+    );
+  });
+}
+
+function updateFogButton() {
+  if (!btnFogToggle) return;
+  const on = gameState.map.fogOfWarEnabled;
+  btnFogToggle.textContent = on ? "🌫 Fog ON" : "☀ Fog OFF";
+  btnFogToggle.className = on ? "btn-fog on" : "btn-fog off";
+}
+
 // ── Zoom + Pan (S1.6) ──────────────────────────────────────────────────
 
 let zoomLevel = 1;

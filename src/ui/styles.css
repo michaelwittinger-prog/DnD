@@ -747,6 +747,22 @@ body {
 
 .btn-sound.off {
   background: #3a1a1a;
+}
+.btn-fog {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid #555;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #ccc;
+}
+.btn-fog.on {
+  background: #1a2a3a;
+  border-color: #4a8abf;
+  color: #8ac;
+}
+.btn-fog.off {
+  background: #2a2a2a;
   color: #f66;
   border-color: #6a3a3a;
 }
