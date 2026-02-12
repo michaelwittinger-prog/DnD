@@ -5,6 +5,31 @@
 
 ---
 
+## 2026-02-12 — Session 9: Sprint 1+2 Completion + Sprint 3 Groundwork
+
+**Commits:** `44eef60`, `a59ac93`, `1185c15` | **Tests:** 964 | **Modules:** 20 engine + 2 persistence
+
+### Built
+- **S2.2+S2.4 Campaign Persistence** — Campaign model with character roster persistence across sessions. Roster snapshots on session end, restore on session start.
+- **S1.5 Fog of War** (`src/engine/visibility.mjs`) — Pure visibility system with Bresenham line-of-sight raycasting. Per-faction vision computation, vision-blocking terrain, dead entities excluded.
+- **Fog UI Integration** — Dark overlay on non-visible cells, NPC token hiding in fog, fog toggle button in header bar.
+- **Engine Barrel Export** — `visibility.mjs` functions exported via `engine/index.mjs`.
+
+### Test delta: +18 (946 → 964)
+- `tests/visibility_test.mjs` — 18 tests: fog disabled, basic vision, vision blocking, dead entities, faction filtering, multi-entity merge, edge cases
+
+### Sprint Status
+- **Sprint 1:** ✅ COMPLETE (S1.1–S1.10 all done)
+- **Sprint 2:** ✅ COMPLETE (S2.1–S2.5 all done)
+- **Next:** Sprint 3 (Multiplayer) + Tier 5 (Advanced AI)
+
+### Commits in this session
+- `44eef60` feat: S2.2+S2.4 — campaign model + character persistence (946 tests)
+- `a59ac93` feat: S1.5 — fog of war visibility system + Bresenham LOS + UI wiring (964 tests)
+- `1185c15` feat: S1.5 fog toggle button + barrel export + CSS (964 tests)
+
+---
+
 ## 2026-02-12 — Session 8: Sprint 1 Polish + Sprint 2 Persistence
 
 **Commit:** `pending` | **Tests:** 946 | **Modules:** 19 engine + 2 persistence

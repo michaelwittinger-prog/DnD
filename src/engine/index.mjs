@@ -27,3 +27,8 @@ export {
 } from "./conditions.mjs";
 export { applyAbility, ABILITY_CATALOGUE, tickCooldowns } from "./abilities.mjs";
 export { computeVisibleCells, isCellVisible, getVisionRange } from "./visibility.mjs";
+export {
+  DIFFICULTY_PRESETS, getDifficulty, listDifficulties,
+  applyDifficultyToEntities, selectTarget, shouldAttack, shouldUseAbility,
+  getAttackDifficultyModifier, getDamageDifficultyModifier, getAcDifficultyModifier,
+} from "./difficulty.mjs";
