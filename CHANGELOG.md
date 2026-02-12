@@ -5,6 +5,28 @@
 
 ---
 
+## 2026-02-12 — Session 11: Sprint 3 + Tier 5/6 Groundwork (WIP)
+
+**Commit:** `793f6a8` | **Tests:** 995 + 34 new (broadcast) | **Status:** IN PROGRESS
+
+### Built (complete)
+- **Game Handbook** (`docs/mir_game_handbook.md`) — Full player reference: rules, abilities, conditions, difficulty, scenarios, controls
+- **S3.1 WebSocket Event Broadcast** (`src/net/eventBroadcast.mjs`) — Room management, client registry, message protocol (encode/decode), event fan-out, action authorization (GM/player/spectator), state sync, turn notifications. **34/34 tests passing.**
+
+### Built (modules done, tests pending)
+- **Tier 6.3 Monster Manual** (`src/content/monsterManual.mjs`) — 15 monster templates across 4 CR tiers (minion/standard/elite/boss). Query by CR, tag, name search. `instantiateMonster()` and `instantiateGroup()` factory functions.
+- **Tier 5.5 Model Adapter** (`src/ai/modelAdapter.mjs`) — Adapter registry pattern for multiple AI providers. Mock, OpenAI, and local LLM adapter factories. Active adapter selection + `callActiveAdapter()`.
+- **Tier 5.1 AI Memory Context** (`src/ai/memoryContext.mjs`) — Context builder: roster summary, recent events, combat state, narrative beats, map summary. `buildFullContext()` + `estimateTokens()`.
+
+### ⚠ RESUME HERE NEXT SESSION
+1. Write tests: `tests/monster_manual_test.mjs`, `tests/model_adapter_test.mjs`, `tests/memory_context_test.mjs`
+2. Add all new test files to `package.json` `test:all` script
+3. Run full regression (should be ~1100+ tests)
+4. Update CHANGELOG, mir_mvp_status, PROJECT_CONTEXT with final counts
+5. Continue with remaining Sprint 3 items (S3.2–S3.6)
+
+---
+
 ## 2026-02-12 — Session 10: Tier 5.3 AI Difficulty Presets
 
 **Commits:** `15b5279`, `04f04e8` | **Tests:** 995 | **Modules:** 21 engine + 2 persistence
