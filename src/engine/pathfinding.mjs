@@ -97,6 +97,22 @@ function buildBlockedSet(state) {
 }
 
 /**
+ * Build a map of terrain movement costs.
+ * Normal cells cost 1. Difficult terrain costs 2.
+ * @param {object} state
+ * @returns {Map<string, number>}
+ */
+function buildTerrainCostMap(state) {
+  const costs = new Map();
+  for (const t of state.map?.terrain ?? []) {
+    if (!t.blocksMovement && t.type === "difficult") {
+      costs.set(key(t.x, t.y), 2);
+    }
+  }
+  return costs;
+}
+
+/**
  * Build the set of occupied cells (all entities except excludeId).
  * @param {object} state
  * @param {string} [excludeId] — entity to exclude (the one moving)
@@ -144,6 +160,7 @@ export function findPath(state, start, goal, opts = {}) {
 
   const blocked = buildBlockedSet(state);
   const occupied = buildOccupiedSet(state, entityId);
+  const terrainCosts = buildTerrainCostMap(state);
 
   // Goal itself blocked by terrain → unreachable
   if (blocked.has(key(goal.x, goal.y))) return null;
@@ -199,7 +216,8 @@ export function findPath(state, start, goal, opts = {}) {
         if (!(allowOccupiedGoal && nk === goalKey)) continue;
       }
 
-      const tentativeG = currentG + 1;
+      const stepCost = terrainCosts.get(nk) ?? 1;
+      const tentativeG = currentG + stepCost;
 
       // maxCost check: path to neighbor exceeds budget
       if (maxCost != null && tentativeG > maxCost) continue;
