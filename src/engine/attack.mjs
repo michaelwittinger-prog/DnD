@@ -11,6 +11,7 @@
 
 import { ErrorCode, makeError } from "./errors.mjs";
 import { rollD20, rollDice } from "./rng.mjs";
+import { getAcModifier, getAttackModifier, hasAttackDisadvantage, shouldSkipTurn } from "./conditions.mjs";
 
 /**
  * Validate and apply an ATTACK action.
@@ -45,12 +46,32 @@ export function applyAttack(state, action) {
     return { ok: false, errors: [makeError(ErrorCode.TARGET_DEAD, `Target "${targetId}" is already dead`)] };
   }
 
-  // Roll to hit (d20 vs AC)
-  const hitRoll = rollD20(state, `${attacker.name} attack roll vs ${target.name}`);
-  // Copy rng state back (rollD20 returns a new state, we apply rng changes to our clone)
-  state.rng = hitRoll.nextState.rng;
-  const hitResult = hitRoll.result;
-  const hit = hitResult >= target.stats.ac;
+  // Stunned attacker cannot attack
+  if (shouldSkipTurn(attacker) && !attacker.conditions.includes("dead")) {
+    return { ok: false, errors: [makeError(ErrorCode.INVALID_ACTION, `Attacker "${attackerId}" is stunned and cannot act`)] };
+  }
+
+  // Roll to hit (d20 vs AC, with condition modifiers)
+  let hitRoll1 = rollD20(state, `${attacker.name} attack roll vs ${target.name}`);
+  state.rng = hitRoll1.nextState.rng;
+  let rawRoll = hitRoll1.result;
+
+  // Disadvantage: roll twice, take lower (poisoned attacker)
+  if (hasAttackDisadvantage(attacker)) {
+    const hitRoll2 = rollD20(state, `${attacker.name} disadvantage re-roll`);
+    state.rng = hitRoll2.nextState.rng;
+    rawRoll = Math.min(rawRoll, hitRoll2.result);
+  }
+
+  // Apply attacker's condition bonuses (blessed: +2)
+  const attackMod = getAttackModifier(attacker);
+  const hitResult = rawRoll + attackMod;
+
+  // Apply target's condition AC modifiers (stunned: -2)
+  const acMod = getAcModifier(target);
+  const effectiveAc = target.stats.ac + acMod;
+
+  const hit = hitResult >= effectiveAc;
 
   let damage = 0;
   if (hit) {

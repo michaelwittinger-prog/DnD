@@ -11,6 +11,8 @@
 import { ErrorCode, makeError } from "./errors.mjs";
 import { rollD20 } from "./rng.mjs";
 import { findNextLivingEntity } from "./combatEnd.mjs";
+import { processEndOfTurn, processStartOfTurn } from "./conditions.mjs";
+import { tickCooldowns } from "./abilities.mjs";
 
 /**
  * Roll initiative and transition to combat mode.
@@ -99,6 +101,20 @@ export function applyEndTurn(state, action) {
   if (rawNextIdx === 0 || wrapped) {
     state.combat.round += 1;
   }
+
+  // ── End-of-turn processing for current entity ────────────────────
+  // Tick ability cooldowns
+  const allEnts = [...(state.entities?.players ?? []), ...(state.entities?.npcs ?? [])];
+  const currentEntity = allEnts.find((e) => e.id === action.entityId);
+  if (currentEntity) {
+    tickCooldowns(currentEntity);
+    // Process condition expiry (durations count down)
+    processEndOfTurn(state, action.entityId);
+  }
+
+  // ── Start-of-turn processing for next entity ─────────────────────
+  // Process DoT effects (burning damage, etc.)
+  processStartOfTurn(state, state.combat.activeEntityId);
 
   // Append log event
   const eventId = `evt-${(state.log.events.length + 1).toString().padStart(4, "0")}`;
