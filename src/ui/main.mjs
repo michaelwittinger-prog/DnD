@@ -23,6 +23,7 @@ import { findPath, isAdjacent } from "../engine/pathfinding.mjs";
 import { initSounds, setSoundEnabled, isSoundEnabled, playMove, playHit, playMiss, playKill, playInitiative, playTurnStart, playError, playCombatEnd } from "./sounds.mjs";
 import { saveSession, loadSession, listSessions, deleteSession, initAutoSave, exportSessionToFile, importSessionFromFile } from "../persistence/sessionStore.mjs";
 import { computeVisibleCells } from "../engine/visibility.mjs";
+import { applyDifficultyToEntities, getDifficulty } from "../engine/difficulty.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -597,8 +598,11 @@ btnLoadScenario?.addEventListener("click", async () => {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const bundle = await resp.json();
     if (!bundle.initialState) throw new Error("Invalid scenario bundle");
-    loadState(bundle.initialState);
-    if (replayStatusEl) { replayStatusEl.textContent = `✓ ${bundle.meta?.name || "Scenario"} loaded`; replayStatusEl.className = "success"; }
+    const adjusted = applyDifficultyToState(bundle.initialState);
+    loadState(adjusted);
+    const diff = getSelectedDifficulty();
+    const preset = getDifficulty({ difficulty: diff });
+    if (replayStatusEl) { replayStatusEl.textContent = `✓ ${bundle.meta?.name || "Scenario"} loaded (${preset.label})`; replayStatusEl.className = "success"; }
   } catch (err) {
     if (replayStatusEl) { replayStatusEl.textContent = `✗ ${err.message}`; replayStatusEl.className = "error"; }
   }
@@ -606,10 +610,30 @@ btnLoadScenario?.addEventListener("click", async () => {
 
 populateScenarioList();
 
+// ── Difficulty Selector (Tier 5.3) ──────────────────────────────────────
+
+const difficultySelectEl = document.getElementById("difficulty-select");
+
+function getSelectedDifficulty() {
+  return difficultySelectEl?.value || "normal";
+}
+
+function applyDifficultyToState(state) {
+  const diff = getSelectedDifficulty();
+  if (diff === "normal") return state;
+  const adjusted = structuredClone(state);
+  adjusted.entities = applyDifficultyToEntities(adjusted.entities, diff);
+  adjusted.difficulty = diff;
+  return adjusted;
+}
+
 document.getElementById("btn-demo-encounter")?.addEventListener("click", () => {
-  loadState(demoEncounter);
-  addNarration("🎲 Demo encounter loaded — Roll Initiative to begin!", "info");
-  if (replayStatusEl) replayStatusEl.textContent = "✓ Demo encounter loaded";
+  const adjusted = applyDifficultyToState(demoEncounter);
+  loadState(adjusted);
+  const diff = getSelectedDifficulty();
+  const preset = getDifficulty({ difficulty: diff });
+  addNarration(`🎲 Demo encounter loaded (${preset.label}) — Roll Initiative to begin!`, "info");
+  if (replayStatusEl) replayStatusEl.textContent = `✓ Demo loaded (${preset.label})`;
 });
 
 async function loadReplayList() {
