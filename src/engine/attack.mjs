@@ -89,7 +89,7 @@ export function applyAttack(state, action) {
     }
   }
 
-  // Append log event
+  // Append log event with full dice detail
   const eventId = `evt-${(state.log.events.length + 1).toString().padStart(4, "0")}`;
   state.log.events.push({
     id: eventId,
@@ -98,8 +98,13 @@ export function applyAttack(state, action) {
     payload: {
       attackerId,
       targetId,
+      rawRoll: rawRoll,
+      attackModifier: attackMod,
       attackRoll: hitResult,
-      targetAc: target.stats.ac,
+      targetBaseAc: target.stats.ac,
+      acModifier: acMod,
+      effectiveAc: effectiveAc,
+      disadvantage: hasAttackDisadvantage(attacker),
       hit,
       damage,
       targetHpAfter: target.stats.hpCurrent,

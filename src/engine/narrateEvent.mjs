@@ -77,11 +77,24 @@ function narrateAttack(event, lookup) {
   const attacker = name(p.attackerId, lookup);
   const target = name(p.targetId, lookup);
 
+  // Build dice detail string: "d20(14)+2=16 vs AC 13(-2=11)"
+  const hasDetail = p.rawRoll != null;
+  let rollDetail;
+  if (hasDetail) {
+    const modStr = p.attackModifier ? (p.attackModifier > 0 ? `+${p.attackModifier}` : `${p.attackModifier}`) : "";
+    const disadvStr = p.disadvantage ? " [disadv]" : "";
+    const acModStr = p.acModifier ? ` (${p.acModifier > 0 ? "+" : ""}${p.acModifier}→${p.effectiveAc})` : "";
+    rollDetail = `d20(${p.rawRoll})${modStr}=${p.attackRoll}${disadvStr} vs AC ${p.targetBaseAc ?? p.targetAc}${acModStr}`;
+  } else {
+    // Backward compat for old events without enriched payload
+    rollDetail = `${p.attackRoll} vs AC ${p.targetAc}`;
+  }
+
   if (p.hit) {
     const killText = p.targetHpAfter === 0 ? ` ${target} falls!` : "";
-    return `${attacker} attacks ${target} — rolls ${p.attackRoll} vs AC ${p.targetAc}: HIT for ${p.damage} damage!${killText}`;
+    return `${attacker} attacks ${target} — ${rollDetail}: HIT for ${p.damage} damage!${killText}`;
   } else {
-    return `${attacker} attacks ${target} — rolls ${p.attackRoll} vs AC ${p.targetAc}: MISS.`;
+    return `${attacker} attacks ${target} — ${rollDetail}: MISS.`;
   }
 }
 
