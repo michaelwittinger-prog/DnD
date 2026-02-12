@@ -21,6 +21,7 @@ import { executeNpcTurn, simulateCombat } from "../engine/combatController.mjs";
 import { isNpcTurn } from "../engine/npcTurnStrategy.mjs";
 import { findPath, isAdjacent } from "../engine/pathfinding.mjs";
 import { initSounds, setSoundEnabled, isSoundEnabled, playMove, playHit, playMiss, playKill, playInitiative, playTurnStart, playError, playCombatEnd } from "./sounds.mjs";
+import { saveSession, loadSession, listSessions, deleteSession, initAutoSave, exportSessionToFile, importSessionFromFile } from "../persistence/sessionStore.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -258,6 +259,9 @@ function dispatch(action) {
   }
 
   render();
+
+  // Auto-save after every dispatch
+  if (autoSaver) autoSaver.schedule();
 
   // Check if it's now an NPC's turn → auto-execute
   if (gameState.combat.mode === "combat" && isNpcTurn(gameState) && !npcTurnRunning) {
@@ -733,5 +737,123 @@ document.getElementById("btn-zoom-reset")?.addEventListener("click", () => {
 
 updateZoomDisplay();
 
-console.log("MIR S1.x — Tabletop Engine UI loaded (sounds + zoom/pan + initiative tracker)");
+// ── Persistence (S2.1 + S2.3 + S2.5) ───────────────────────────────────
+
+const SESSION_ID = "mir-current-session";
+const saveFeedbackEl = document.getElementById("save-feedback");
+const saveListEl = document.getElementById("save-list");
+
+function showSaveFeedback(msg, cls) {
+  if (saveFeedbackEl) { saveFeedbackEl.textContent = msg; saveFeedbackEl.className = cls || ""; }
+}
+
+// Auto-save on every dispatch (S2.3)
+let autoSaver = null;
+try {
+  autoSaver = initAutoSave(
+    SESSION_ID,
+    () => gameState,
+    () => sessionActions,
+    () => showSaveFeedback("💾 auto-saved", "success"),
+  );
+} catch { /* IndexedDB not available — skip auto-save */ }
+
+// Manual save
+document.getElementById("btn-save-session")?.addEventListener("click", async () => {
+  try {
+    const name = gameState.map?.name || "Session";
+    await saveSession({
+      id: "save-" + Date.now(),
+      name: `${name} — ${new Date().toLocaleTimeString()}`,
+      gameState: structuredClone(gameState),
+      actions: structuredClone(sessionActions),
+    });
+    showSaveFeedback("✓ Saved!", "success");
+    refreshSaveList();
+  } catch (err) { showSaveFeedback(`✗ ${err.message}`, "error"); }
+});
+
+// Load saved session
+async function onLoadSave(id) {
+  try {
+    const session = await loadSession(id);
+    if (!session?.gameState) { showSaveFeedback("✗ Session not found", "error"); return; }
+    loadState(session.gameState);
+    sessionActions.length = 0;
+    if (session.actions) sessionActions.push(...session.actions);
+    showSaveFeedback(`✓ Loaded: ${session.name}`, "success");
+    addNarration(`📂 Loaded saved session: ${session.name}`, "info");
+  } catch (err) { showSaveFeedback(`✗ ${err.message}`, "error"); }
+}
+
+// Delete saved session
+async function onDeleteSave(id) {
+  try {
+    await deleteSession(id);
+    showSaveFeedback("✓ Deleted", "success");
+    refreshSaveList();
+  } catch (err) { showSaveFeedback(`✗ ${err.message}`, "error"); }
+}
+
+// Refresh save list
+async function refreshSaveList() {
+  if (!saveListEl) return;
+  try {
+    const sessions = await listSessions();
+    // Filter out auto-save entry
+    const userSaves = sessions.filter(s => s.id !== SESSION_ID);
+    if (userSaves.length === 0) {
+      saveListEl.innerHTML = `<div class="save-empty">No saves yet</div>`;
+      return;
+    }
+    saveListEl.innerHTML = userSaves.slice(0, 8).map(s => {
+      const time = new Date(s.savedAt).toLocaleString();
+      return `<div class="save-entry" data-id="${s.id}">
+        <span class="save-name">${s.name}</span>
+        <span class="save-time">${time}</span>
+        <button class="save-load-btn" data-action="load" data-id="${s.id}" title="Load">📂</button>
+        <button class="save-del-btn" data-action="delete" data-id="${s.id}" title="Delete">🗑</button>
+      </div>`;
+    }).join("");
+  } catch { saveListEl.innerHTML = `<div class="save-empty">IndexedDB unavailable</div>`; }
+}
+
+// Delegate click events for save list
+saveListEl?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (btn.dataset.action === "load") onLoadSave(id);
+  if (btn.dataset.action === "delete") onDeleteSave(id);
+});
+
+// Export session to file (S2.5)
+document.getElementById("btn-export-session")?.addEventListener("click", () => {
+  exportSessionToFile({
+    id: SESSION_ID,
+    name: gameState.map?.name || "Session",
+    gameState: structuredClone(gameState),
+    actions: structuredClone(sessionActions),
+  });
+  showSaveFeedback("✓ Exported to file", "success");
+});
+
+// Import session from file (S2.5)
+document.getElementById("session-file-input")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  e.target.value = "";
+  try {
+    const session = await importSessionFromFile(file);
+    loadState(session.gameState);
+    if (session.actions) { sessionActions.length = 0; sessionActions.push(...session.actions); }
+    showSaveFeedback(`✓ Imported: ${session.name || "Session"}`, "success");
+    addNarration(`📂 Imported session: ${session.name || "Session"}`, "info");
+  } catch (err) { showSaveFeedback(`✗ ${err.message}`, "error"); }
+});
+
+// Init: refresh save list on load
+refreshSaveList();
+
+console.log("MIR S2.x — Tabletop Engine UI loaded (persistence + sounds + zoom/pan)");
 console.log("State:", gameState.map.name, `${gameState.map.grid.size.width}×${gameState.map.grid.size.height}`);
