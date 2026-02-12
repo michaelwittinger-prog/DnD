@@ -338,7 +338,7 @@ Graceful shutdown on SIGINT/SIGTERM/SIGHUP.
 |--------|---------|
 | `npm run ui` | Start UI server (auto-kills stale port) |
 | `npm run ui:stop` | Kill whatever is on port 3001 |
-| `npm run test:all` | Run all 15 test suites (946 tests) |
+| `npm run test:all` | Run all 16 test suites (995 tests) |
 
 ## Documentation Concept
 
@@ -373,7 +373,9 @@ After every task completion:
 - Phase 5.0: complete (player intent capture + one-click turn execution)
 - Phase S0: complete (pathfinding, death/combat end, NPC strategy, narration, combat controller, UI upgrade)
 - Phase S1: complete (ability system, condition system, range validation, zoom/pan, sounds, initiative tracker, scenario polish — 932 tests)
-- Phase S2: in progress (session save/load, auto-save, import/export, campaign model, character persistence — 946 tests)
+- Phase S1.5: complete (fog of war visibility, Bresenham LOS — 964 tests)
+- Phase S2: complete (session save/load, auto-save, import/export, campaign model, character persistence — 964 tests)
+- Tier 5.3: complete (AI difficulty presets: easy/normal/hard/deadly, UI selector — 995 tests)
 - Phase S3+: pending (see `docs/mir_product_roadmap.md`)
 
 ## Phase S2 — Persistence

@@ -1,6 +1,6 @@
 # MIR MVP Status
 
-> Last updated: 2026-02-12 · Sprint 1 complete · 932 tests passing
+> Last updated: 2026-02-12 · Sprint 1+2 complete · Tier 5.3 done · 995 tests passing
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Metric | Value |
 |--------|-------|
-| Total automated tests | 932 |
+| Total automated tests | 995 |
 | Engine tests | 95 |
 | AI parser tests | 82 |
 | AI prompt tests | 50 |
@@ -22,10 +22,13 @@
 | NPC strategy tests | 54 |
 | Narration/controller tests | 44 |
 | Sprint 1 tests (abilities, conditions, range) | 96 |
+| Persistence tests | 14 |
+| Visibility tests | 18 |
+| Difficulty tests | 31 |
 | Schema invariants | 25 |
 | Scenarios | 3 |
 | Replay bundles | 3 |
-| Engine modules | 17 |
+| Engine modules | 21 |
 | Zero-dependency modules | All engine + validation |
 
 ---
@@ -143,6 +146,51 @@
 - [x] Deterministic engine badge
 - [x] Single-command startup (`npm run ui`)
 
+### Fog of War (S1.5)
+- [x] Bresenham line-of-sight raycasting
+- [x] Per-faction vision computation (players see, NPCs hidden)
+- [x] Vision-blocking terrain types
+- [x] Dead entities excluded from vision
+- [x] Multi-entity vision merge
+- [x] UI fog toggle button
+- [x] Dark overlay on non-visible cells
+
+### Zoom/Pan (S1.6)
+- [x] Mouse wheel zoom (50%–250%)
+- [x] Zoom in/out/reset buttons
+- [x] Canvas transform scaling
+
+### Sound (S1.8)
+- [x] Web Audio API synthesized effects
+- [x] Move, hit, miss, kill, initiative, turn, error, combat end
+- [x] Sound toggle button
+
+### Initiative Tracker (S1.9)
+- [x] HP bars per entity
+- [x] Active turn highlighting
+- [x] Condition icons
+- [x] Dead entity styling
+
+### Session Persistence (S2.1+S2.3+S2.5)
+- [x] IndexedDB save/load/list/delete
+- [x] Auto-save after every dispatch (2s debounce)
+- [x] Export/import session to/from JSON file
+
+### Campaign Persistence (S2.2+S2.4)
+- [x] Campaign CRUD with ordered sessions
+- [x] Character roster persistence across sessions
+- [x] Roster snapshot on session end, restore on start
+- [x] Campaign export/import bundles
+
+### AI Difficulty Presets (Tier 5.3)
+- [x] 4 levels: Easy, Normal, Hard, Deadly
+- [x] NPC HP multiplier (0.8–1.5x)
+- [x] Attack/damage/AC modifiers
+- [x] Target selection strategy (random, weakest, focus-fire)
+- [x] Attack probability & ability usage tuning
+- [x] UI difficulty dropdown in welcome panel
+- [x] Applied on scenario and demo encounter load
+
 ### DevOps
 - [x] Auto-kill stale port on server startup
 - [x] Graceful shutdown (SIGINT/SIGTERM)
@@ -155,12 +203,9 @@
 
 | Feature | Reason |
 |---------|--------|
-| Difficult terrain mechanics | Tracked in state; pathfinding cost not yet enforced |
-| Fog of War | Planned for Sprint 2+ |
-| Real-time multiplayer | Out of scope |
+| Real-time multiplayer | Planned Sprint 3 |
 | Character creation | Focus is on engine, not content |
 | Map editor | Scenarios are hand-authored JSON |
-| Persistent campaigns | Sessions are standalone |
 | Authentication / accounts | Local-first design |
 | Art / animations | Engineering demo, not visual product |
 | Mobile support | Desktop browser only |

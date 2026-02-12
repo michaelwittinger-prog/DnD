@@ -5,6 +5,24 @@
 
 ---
 
+## 2026-02-12 — Session 10: Tier 5.3 AI Difficulty Presets
+
+**Commits:** `15b5279`, `04f04e8` | **Tests:** 995 | **Modules:** 21 engine + 2 persistence
+
+### Built
+- **Tier 5.3: AI Difficulty Presets** (`src/engine/difficulty.mjs`) — 4 difficulty levels: Easy, Normal, Hard, Deadly. Configures NPC combat behavior: attack probability, ability usage, target selection strategy, movement strategy, attack/damage/AC modifiers, HP multiplier.
+- **Difficulty Functions** — `getDifficulty()`, `listDifficulties()`, `applyDifficultyToEntities()`, `selectTarget()`, `shouldAttack()`, `shouldUseAbility()`, modifier getters. All pure functions with deterministic RNG injection.
+- **UI Difficulty Selector** — Dropdown in welcome panel (Easy/Normal/Hard/Deadly). Applied on demo encounter load and scenario load. HP scaling for NPCs, difficulty label in narration.
+
+### Test delta: +31 (964 → 995)
+- `tests/difficulty_test.mjs` — 31 tests: presets (5), getDifficulty (4), listDifficulties (1), applyDifficultyToEntities (7), selectTarget (6), shouldAttack (2), shouldUseAbility (2), modifier getters (4)
+
+### Commits in this session
+- `15b5279` feat: Tier 5.3 — AI difficulty presets (easy/normal/hard/deadly) + 31 tests (995 total)
+- `04f04e8` feat: wire difficulty selector into UI — dropdown applies to encounters + scenarios
+
+---
+
 ## 2026-02-12 — Session 9: Sprint 1+2 Completion + Sprint 3 Groundwork
 
 **Commits:** `44eef60`, `a59ac93`, `1185c15` | **Tests:** 964 | **Modules:** 20 engine + 2 persistence
