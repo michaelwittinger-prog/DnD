@@ -19,3 +19,10 @@ export { checkCombatEnd, findNextLivingEntity } from "./combatEnd.mjs";
 export { planNpcTurn, isNpc, isNpcTurn } from "./npcTurnStrategy.mjs";
 export { narrateEvent, narrateEvents } from "./narrateEvent.mjs";
 export { executeNpcTurn, simulateCombat } from "./combatController.mjs";
+export {
+  applyCondition, removeCondition, hasCondition,
+  processStartOfTurn, processEndOfTurn,
+  getAcModifier, getAttackModifier, hasAttackDisadvantage, shouldSkipTurn,
+  CONDITION_DEFS,
+} from "./conditions.mjs";
+export { applyAbility, ABILITY_CATALOGUE, tickCooldowns } from "./abilities.mjs";
