@@ -1,36 +1,13 @@
 /**
- * inputController.mjs — MIR 2.1 Input Controller.
+ * inputController.mjs — MIR S0.6 Input Controller.
  *
  * Handles canvas clicks and button presses.
+ * Now uses A* pathfinding for movement and supports click-to-attack.
  * Dispatches DeclaredActions to the engine via a callback.
  * Never modifies state directly — only creates actions.
  */
 
-/**
- * Build a cardinal-only path from `from` to `to`.
- * Moves horizontally first, then vertically. No pathfinding.
- *
- * @param {{ x: number, y: number }} from
- * @param {{ x: number, y: number }} to
- * @returns {{ x: number, y: number }[]}
- */
-function buildCardinalPath(from, to) {
-  const path = [];
-  let { x, y } = from;
-
-  // Horizontal steps
-  while (x !== to.x) {
-    x += x < to.x ? 1 : -1;
-    path.push({ x, y });
-  }
-  // Vertical steps
-  while (y !== to.y) {
-    y += y < to.y ? 1 : -1;
-    path.push({ x, y });
-  }
-
-  return path;
-}
+import { findPath, isAdjacent } from "../engine/pathfinding.mjs";
 
 /**
  * Find the entity at a given grid cell, or null.
@@ -57,6 +34,17 @@ function findEntity(state, id) {
 }
 
 /**
+ * Determine if an entity is hostile to the active entity.
+ * Players are hostile to NPCs and vice versa.
+ */
+function isHostile(state, entityA, entityB) {
+  if (!entityA || !entityB) return false;
+  const aKind = entityA.kind;
+  const bKind = entityB.kind;
+  return (aKind === "player" && bKind === "npc") || (aKind === "npc" && bKind === "player");
+}
+
+/**
  * Set up all input handlers.
  *
  * @param {object} opts
@@ -65,8 +53,10 @@ function findEntity(state, id) {
  * @param {() => object} opts.getState — returns current GameState
  * @param {(action: object) => void} opts.dispatch — sends DeclaredAction to engine
  * @param {(id: string|null) => void} opts.onSelect — UI selection callback
+ * @param {function} opts.onAiPropose — AI proposal callback
+ * @param {function} [opts.onHoverCell] — cell hover callback for path preview
  */
-export function initInputController({ canvas, cellPx, getState, dispatch, onSelect, onAiPropose }) {
+export function initInputController({ canvas, cellPx, getState, dispatch, onSelect, onAiPropose, onHoverCell }) {
   // ── Canvas click ──────────────────────────────────────────────────
   canvas.addEventListener("click", (e) => {
     const rect = canvas.getBoundingClientRect();
@@ -81,24 +71,66 @@ export function initInputController({ canvas, cellPx, getState, dispatch, onSele
 
     const clickedEntity = entityAtCell(state, gx, gy);
     const selectedId = state.ui.selectedEntityId;
+    const inCombat = state.combat.mode === "combat";
+    const activeId = inCombat ? state.combat.activeEntityId : null;
 
+    // Get the active entity (in combat) or selected entity
+    const activeEntity = activeId ? findEntity(state, activeId) : null;
+
+    // CLICK ON ENTITY
     if (clickedEntity) {
-      // Click on entity → select it (or deselect if same)
+      // If in combat and clicking a hostile while it's our turn → ATTACK
+      if (inCombat && activeEntity && clickedEntity.id !== activeId) {
+        if (isHostile(state, activeEntity, clickedEntity) && !clickedEntity.conditions.includes("dead")) {
+          // Check if adjacent for melee
+          if (isAdjacent(activeEntity.position, clickedEntity.position)) {
+            dispatch({ type: "ATTACK", attackerId: activeId, targetId: clickedEntity.id });
+            return;
+          }
+          // Not adjacent — select the hostile (user can then move closer)
+        }
+      }
+
+      // Regular click: select/deselect
       if (clickedEntity.id === selectedId) {
         onSelect(null);
       } else {
         onSelect(clickedEntity.id);
       }
+      return;
+    }
+
+    // CLICK ON EMPTY CELL
+    if (inCombat && activeEntity) {
+      // In combat: move the active entity using pathfinding
+      const pathResult = findPath(state, activeEntity.position, { x: gx, y: gy }, activeEntity.stats.movementSpeed);
+      if (pathResult && pathResult.path.length > 0) {
+        dispatch({ type: "MOVE", entityId: activeId, path: pathResult.path });
+      }
     } else if (selectedId) {
-      // Click on empty cell with entity selected → MOVE
+      // In exploration: move selected entity using pathfinding
       const selected = findEntity(state, selectedId);
       if (!selected) return;
-
-      const path = buildCardinalPath(selected.position, { x: gx, y: gy });
-      if (path.length === 0) return;
-
-      dispatch({ type: "MOVE", entityId: selectedId, path });
+      const pathResult = findPath(state, selected.position, { x: gx, y: gy }, selected.stats.movementSpeed);
+      if (pathResult && pathResult.path.length > 0) {
+        dispatch({ type: "MOVE", entityId: selectedId, path: pathResult.path });
+      }
     }
+  });
+
+  // ── Canvas hover for path preview ──────────────────────────────────
+  canvas.addEventListener("mousemove", (e) => {
+    if (!onHoverCell) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const gx = Math.floor(mx / cellPx);
+    const gy = Math.floor(my / cellPx);
+    onHoverCell(gx, gy);
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    if (onHoverCell) onHoverCell(-1, -1);
   });
 
   // ── Roll Initiative button ────────────────────────────────────────
@@ -162,8 +194,6 @@ export function initInputController({ canvas, cellPx, getState, dispatch, onSele
       const selectedId = state.ui.selectedEntityId;
       if (!selectedId) return;
 
-      // In combat: attacker is active entity, target is selected
-      // In exploration: attacker is first player, target is selected
       let attackerId;
       if (state.combat.mode === "combat") {
         attackerId = state.combat.activeEntityId;

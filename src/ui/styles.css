@@ -477,6 +477,50 @@ body {
   border-color: #666;
 }
 
+/* ── Narration log ───────────────────────────────── */
+
+#section-narration {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#narration-log {
+  list-style: none;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #ddd;
+}
+
+#narration-log li {
+  padding: 0.2rem 0;
+  border-bottom: 1px solid #0a0a1e;
+  animation: narration-fade-in 0.3s ease;
+}
+
+@keyframes narration-fade-in {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#narration-log .narration-info {
+  color: #ccc;
+}
+
+#narration-log .narration-error {
+  color: #f66;
+}
+
+#narration-log .narration-npc {
+  color: #ff9800;
+  font-weight: bold;
+}
+
+#narration-log .narration-combat {
+  color: #e0a030;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
 /* ── Initiative ──────────────────────────────────── */
 
 #initiative-list {
@@ -492,6 +536,12 @@ body {
 #initiative-list li.active {
   color: #e0a030;
   font-weight: bold;
+}
+
+#initiative-list li.dead {
+  color: #666;
+  text-decoration: line-through;
+  opacity: 0.6;
 }
 
 /* ── Event log ───────────────────────────────────── */

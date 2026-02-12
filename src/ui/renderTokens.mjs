@@ -86,13 +86,37 @@ export function renderTokens(ctx, state, cellPx) {
     ctx.fillStyle = "#fff";
     ctx.fillText(label, cx, cy - (ent.kind !== "object" ? 3 : 0));
 
-    // HP text for players and npcs
+    // HP bar for players and npcs
     if (ent.kind !== "object") {
+      const barW = cellPx * 0.7;
+      const barH = 4;
+      const barX = cx - barW / 2;
+      const barY = cy + radius + 4;
+      const hpPct = ent.stats.hpMax > 0 ? ent.stats.hpCurrent / ent.stats.hpMax : 0;
+
+      // Bar background
+      ctx.fillStyle = "#333";
+      ctx.fillRect(barX, barY, barW, barH);
+
+      // Bar fill — color by health percentage
+      if (!isDead) {
+        const barColor = hpPct > 0.5 ? "#4caf50" : hpPct > 0.25 ? "#ff9800" : "#f44336";
+        ctx.fillStyle = barColor;
+        ctx.fillRect(barX, barY, barW * Math.max(0, hpPct), barH);
+      }
+
+      // Bar border
+      ctx.strokeStyle = "#555";
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(barX, barY, barW, barH);
+
+      // HP text
       const hpText = `${ent.stats.hpCurrent}/${ent.stats.hpMax}`;
       const hpSize = Math.max(7, Math.floor(cellPx * 0.2));
       ctx.font = `${hpSize}px sans-serif`;
-      ctx.fillStyle = isDead ? "#888" : "#cfc";
-      ctx.fillText(hpText, cx, cy + radius * 0.6);
+      ctx.textAlign = "center";
+      ctx.fillStyle = isDead ? "#888" : "#fff";
+      ctx.fillText(hpText, cx, barY + barH + hpSize + 1);
     }
   }
 }

@@ -1,7 +1,10 @@
 /**
- * main.mjs — MIR 3.3 Tabletop Engine UI entry point.
+ * main.mjs — MIR S0.8 Tabletop Engine UI entry point.
  *
  * Wires GameState + engine + renderers + input controller.
+ * Now includes: pathfinding click-to-move, click-to-attack,
+ * NPC auto-turns, event narration, damage floaters, path preview.
+ *
  * All state changes flow through applyAction. The UI never
  * modifies game-meaningful state directly.
  */
@@ -13,22 +16,35 @@ import { stateHash } from "../replay/hash.mjs";
 import { renderGrid } from "./renderGrid.mjs";
 import { renderTokens } from "./renderTokens.mjs";
 import { initInputController } from "./inputController.mjs";
+import { narrateEvent } from "../engine/narrateEvent.mjs";
+import { executeNpcTurn, simulateCombat } from "../engine/combatController.mjs";
+import { isNpcTurn } from "../engine/npcTurnStrategy.mjs";
+import { findPath, isAdjacent } from "../engine/pathfinding.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
-const CELL_PX = 40; // pixels per grid cell
+const CELL_PX = 48; // pixels per grid cell (larger for HP bars)
+const NPC_TURN_DELAY = 800; // ms delay for NPC auto-turn actions
+const FLOATER_DURATION = 1200; // ms for damage/miss floaters
 
 // ── State ───────────────────────────────────────────────────────────────
 
 let gameState = structuredClone(explorationExample);
-
-// Enable seeded RNG so initiative and attacks work deterministically
 gameState.rng.mode = "seeded";
 gameState.rng.seed = "ui-session-" + Date.now();
 
-// Track session for replay export
 const sessionInitialState = structuredClone(gameState);
 const sessionActions = [];
+
+// ── UI Overlay State (not game state — visual-only) ─────────────────────
+
+let uiOverlay = {
+  pathPreview: [],       // path steps to show on hover
+  attackTargets: [],     // hostile positions in melee range
+  floaters: [],          // damage/miss text floaters
+};
+
+let npcTurnRunning = false;  // prevents double-execution
 
 // ── DOM refs ────────────────────────────────────────────────────────────
 
@@ -41,21 +57,21 @@ const initiativeListEl = document.getElementById("initiative-list");
 const eventLogEl = document.getElementById("event-log");
 const actionFeedbackEl = document.getElementById("action-feedback");
 const seedDisplayEl = document.getElementById("seed-display");
+const narrationLogEl = document.getElementById("narration-log");
 
 // ── Render ──────────────────────────────────────────────────────────────
 
 function render() {
   const { width, height } = gameState.map.grid.size;
-
-  // Size canvas
   canvas.width = width * CELL_PX;
   canvas.height = height * CELL_PX;
 
-  // Draw grid + tokens
-  renderGrid(ctx, gameState, CELL_PX);
+  // Compute attack targets for active entity
+  computeAttackTargets();
+
+  renderGrid(ctx, gameState, CELL_PX, uiOverlay);
   renderTokens(ctx, gameState, CELL_PX);
 
-  // Update sidebar
   renderHeader();
   renderSelectedInfo();
   renderInitiativeOrder();
@@ -63,11 +79,31 @@ function render() {
   renderSeedDisplay();
   updateButtonStates();
   updateIndicators();
+
+  // Clean expired floaters
+  uiOverlay.floaters = uiOverlay.floaters.filter(f => Date.now() - f.startTime < f.duration);
+}
+
+function computeAttackTargets() {
+  uiOverlay.attackTargets = [];
+  if (gameState.combat.mode !== "combat") return;
+  const activeId = gameState.combat.activeEntityId;
+  if (!activeId) return;
+  const activeEnt = findEntity(activeId);
+  if (!activeEnt || activeEnt.kind !== "player") return;
+
+  // Show red indicators on adjacent hostile entities
+  const hostiles = activeEnt.kind === "player" ? gameState.entities.npcs : gameState.entities.players;
+  for (const h of hostiles) {
+    if (h.conditions.includes("dead")) continue;
+    if (isAdjacent(activeEnt.position, h.position)) {
+      uiOverlay.attackTargets.push({ ...h.position });
+    }
+  }
 }
 
 function renderHeader() {
   mapNameEl.textContent = gameState.map.name;
-
   const mode = gameState.combat.mode;
   combatStatusEl.textContent = mode === "combat"
     ? `⚔ Combat — Round ${gameState.combat.round}`
@@ -77,21 +113,11 @@ function renderHeader() {
 
 function renderSelectedInfo() {
   const id = gameState.ui.selectedEntityId;
-  if (!id) {
-    selectedInfoEl.innerHTML = "Click a token to select";
-    return;
-  }
-
+  if (!id) { selectedInfoEl.innerHTML = "Click a token to select"; return; }
   const ent = findEntity(id);
-  if (!ent) {
-    selectedInfoEl.innerHTML = "Click a token to select";
-    return;
-  }
-
+  if (!ent) { selectedInfoEl.innerHTML = "Click a token to select"; return; }
   const conditions = ent.conditions.length > 0
-    ? `<div class="entity-conditions">${ent.conditions.join(", ")}</div>`
-    : "";
-
+    ? `<div class="entity-conditions">${ent.conditions.join(", ")}</div>` : "";
   selectedInfoEl.innerHTML = `
     <div class="entity-name">${ent.name}</div>
     <div>${ent.kind} · ${ent.id}</div>
@@ -104,57 +130,31 @@ function renderSelectedInfo() {
 
 function renderInitiativeOrder() {
   if (gameState.combat.mode !== "combat") {
-    initiativeListEl.innerHTML = "<li>—</li>";
-    return;
+    initiativeListEl.innerHTML = "<li>—</li>"; return;
   }
-
-  initiativeListEl.innerHTML = gameState.combat.initiativeOrder
-    .map((id) => {
-      const ent = findEntity(id);
-      const name = ent ? ent.name : id;
-      const isActive = id === gameState.combat.activeEntityId;
-      return `<li class="${isActive ? "active" : ""}">${isActive ? "▸ " : ""}${name}</li>`;
-    })
-    .join("");
+  initiativeListEl.innerHTML = gameState.combat.initiativeOrder.map((id) => {
+    const ent = findEntity(id);
+    const name = ent ? ent.name : id;
+    const isActive = id === gameState.combat.activeEntityId;
+    const isDead = ent?.conditions.includes("dead");
+    let cls = isActive ? "active" : "";
+    if (isDead) cls += " dead";
+    return `<li class="${cls}">${isActive ? "▸ " : ""}${name}${isDead ? " 💀" : ""}</li>`;
+  }).join("");
 }
 
 function renderEventLog() {
   const events = gameState.log.events;
   const last10 = events.slice(-10).reverse();
-
-  eventLogEl.innerHTML = last10
-    .map((evt) => {
-      const detail = formatEventDetail(evt);
-      return `<li><span class="evt-type">${evt.type}</span> <span class="evt-detail">${detail}</span></li>`;
-    })
-    .join("");
-}
-
-function formatEventDetail(evt) {
-  const p = evt.payload;
-  switch (evt.type) {
-    case "MOVE_APPLIED":
-      return `${p.entityId} → (${p.finalPosition.x},${p.finalPosition.y})`;
-    case "ATTACK_RESOLVED":
-      return `${p.attackerId}→${p.targetId} roll:${p.attackRoll} ${p.hit ? "HIT" : "miss"} dmg:${p.damage}`;
-    case "INITIATIVE_ROLLED":
-      return p.order.map((o) => `${o.entityId}:${o.roll}`).join(", ");
-    case "TURN_ENDED":
-      return `${p.entityId}→${p.nextEntityId} r${p.round}`;
-    case "RNG_SEED_SET":
-      return `seed=${p.nextSeed}`;
-    case "ACTION_REJECTED":
-      return p.reasons?.[0] || "rejected";
-    default:
-      return JSON.stringify(p).slice(0, 60);
-  }
+  eventLogEl.innerHTML = last10.map((evt) => {
+    const narration = narrateEvent(evt, gameState);
+    return `<li><span class="evt-type">${evt.type}</span> <span class="evt-detail">${narration}</span></li>`;
+  }).join("");
 }
 
 function renderSeedDisplay() {
   if (seedDisplayEl) {
-    const seed = gameState.rng.seed || "(none)";
-    const mode = gameState.rng.mode;
-    seedDisplayEl.textContent = `${mode}: ${seed}`;
+    seedDisplayEl.textContent = `${gameState.rng.mode}: ${gameState.rng.seed || "(none)"}`;
   }
 }
 
@@ -164,42 +164,109 @@ function updateButtonStates() {
   const btnAttack = document.getElementById("btn-attack");
 
   const inCombat = gameState.combat.mode === "combat";
+  const isPlayerTurn = inCombat && !isNpcTurn(gameState);
 
-  btnRollInit.disabled = inCombat;
-  btnEndTurn.disabled = !inCombat;
-  btnAttack.disabled = !gameState.ui.selectedEntityId;
+  btnRollInit.disabled = inCombat || npcTurnRunning;
+  btnEndTurn.disabled = !isPlayerTurn || npcTurnRunning;
+  btnAttack.disabled = !gameState.ui.selectedEntityId || npcTurnRunning;
+
+  // Disable canvas clicks during NPC turns
+  canvas.style.pointerEvents = npcTurnRunning ? "none" : "auto";
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
 function findEntity(id) {
-  const all = [
-    ...gameState.entities.players,
-    ...gameState.entities.npcs,
-    ...gameState.entities.objects,
-  ];
+  const all = [...gameState.entities.players, ...gameState.entities.npcs, ...gameState.entities.objects];
   return all.find((e) => e.id === id) || null;
+}
+
+// ── Narration Log ───────────────────────────────────────────────────────
+
+function addNarration(text, type = "info") {
+  if (!narrationLogEl) return;
+  const li = document.createElement("li");
+  li.className = `narration-${type}`;
+  li.textContent = text;
+  narrationLogEl.prepend(li);
+  // Keep last 20
+  while (narrationLogEl.children.length > 20) {
+    narrationLogEl.removeChild(narrationLogEl.lastChild);
+  }
+}
+
+// ── Floaters (damage popups) ────────────────────────────────────────────
+
+function addFloater(x, y, text, color) {
+  uiOverlay.floaters.push({
+    x, y, text, color,
+    startTime: Date.now(),
+    duration: FLOATER_DURATION,
+  });
+}
+
+// Start floater animation loop
+function animateFloaters() {
+  if (uiOverlay.floaters.length > 0) {
+    const { width, height } = gameState.map.grid.size;
+    canvas.width = width * CELL_PX;
+    canvas.height = height * CELL_PX;
+    renderGrid(ctx, gameState, CELL_PX, uiOverlay);
+    renderTokens(ctx, gameState, CELL_PX);
+  }
+  requestAnimationFrame(animateFloaters);
 }
 
 // ── Dispatch ────────────────────────────────────────────────────────────
 
 function dispatch(action) {
+  const prevState = gameState;
   const result = applyAction(gameState, action);
-
-  // Track for replay export
   sessionActions.push(structuredClone(action));
 
   if (result.success) {
     gameState = result.nextState;
     showFeedback(`✓ ${action.type}`, true);
+
+    // Process events for floaters and narration
+    for (const evt of result.events) {
+      processEventVisuals(evt, prevState);
+      addNarration(narrateEvent(evt, gameState));
+    }
   } else {
-    // On action rejection, adopt the nextState (which has the rejection event in log)
     gameState = result.nextState;
     const msg = result.errors?.[0] || "Action rejected";
     showFeedback(msg, false);
+    addNarration(`⚠ ${msg}`, "error");
   }
 
   render();
+
+  // Check if it's now an NPC's turn → auto-execute
+  if (gameState.combat.mode === "combat" && isNpcTurn(gameState) && !npcTurnRunning) {
+    scheduleNpcTurn();
+  }
+}
+
+function processEventVisuals(evt, prevState) {
+  if (evt.type === "ATTACK_RESOLVED") {
+    const p = evt.payload;
+    const target = findEntity(p.targetId);
+    if (target) {
+      if (p.hit) {
+        addFloater(target.position.x, target.position.y, `-${p.damage}`, "rgba(255, 80, 80, 1)");
+        if (p.targetHpAfter === 0) {
+          addFloater(target.position.x, target.position.y - 0.5, "💀", "rgba(255, 255, 255, 1)");
+        }
+      } else {
+        addFloater(target.position.x, target.position.y, "MISS", "rgba(200, 200, 200, 1)");
+      }
+    }
+  }
+  if (evt.type === "COMBAT_ENDED") {
+    const winner = evt.payload.winner === "players" ? "🎉 Heroes Win!" : "💀 Enemies Win!";
+    addNarration(winner, "combat");
+  }
 }
 
 function showFeedback(msg, success) {
@@ -207,11 +274,94 @@ function showFeedback(msg, success) {
   actionFeedbackEl.className = success ? "success" : "";
 }
 
-// ── AI Proposal ─────────────────────────────────────────────────────────
+// ── NPC Auto-Turn ───────────────────────────────────────────────────────
+
+async function scheduleNpcTurn() {
+  if (npcTurnRunning) return;
+  npcTurnRunning = true;
+  updateButtonStates();
+
+  // Small delay so player can see it's NPC's turn
+  await sleep(NPC_TURN_DELAY);
+
+  while (gameState.combat.mode === "combat" && isNpcTurn(gameState)) {
+    const activeId = gameState.combat.activeEntityId;
+    if (!activeId) break;
+
+    const npc = findEntity(activeId);
+    addNarration(`⚔ ${npc?.name || activeId}'s turn...`, "npc");
+
+    const result = executeNpcTurn(gameState, activeId);
+
+    // Show each event with delay
+    for (const evt of result.events) {
+      processEventVisuals(evt, gameState);
+      addNarration(narrateEvent(evt, result.state));
+    }
+
+    gameState = result.state;
+    render();
+
+    // Delay between NPC turns for readability
+    if (gameState.combat.mode === "combat" && isNpcTurn(gameState)) {
+      await sleep(NPC_TURN_DELAY);
+    }
+  }
+
+  npcTurnRunning = false;
+  render(); // Re-enable buttons
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// ── Path Preview on Hover ───────────────────────────────────────────────
+
+function onHoverCell(gx, gy) {
+  if (gx < 0 || gy < 0) {
+    uiOverlay.pathPreview = [];
+    render();
+    return;
+  }
+
+  const state = gameState;
+  const inCombat = state.combat.mode === "combat";
+  let moverId;
+
+  if (inCombat) {
+    moverId = state.combat.activeEntityId;
+    // Only show preview for player entities
+    const ent = findEntity(moverId);
+    if (!ent || ent.kind !== "player") {
+      uiOverlay.pathPreview = [];
+      return;
+    }
+  } else {
+    moverId = state.ui.selectedEntityId;
+  }
+
+  if (!moverId) {
+    uiOverlay.pathPreview = [];
+    return;
+  }
+
+  const mover = findEntity(moverId);
+  if (!mover) { uiOverlay.pathPreview = []; return; }
+
+  // Don't path to occupied cells
+  const all = [...state.entities.players, ...state.entities.npcs, ...state.entities.objects];
+  const occupied = all.find(e => e.position.x === gx && e.position.y === gy);
+  if (occupied) { uiOverlay.pathPreview = []; return; }
+
+  const pathResult = findPath(state, mover.position, { x: gx, y: gy }, mover.stats.movementSpeed);
+  uiOverlay.pathPreview = pathResult ? pathResult.path : [];
+}
+
+// ── AI Proposal ─────────────────────────────────────────────────────
 
 const aiFeedbackEl = document.getElementById("ai-feedback");
 const aiDebugEl = document.getElementById("ai-debug");
-
 const AI_BRIDGE_URL = "http://localhost:3002/api/propose";
 
 async function onAiPropose(playerInput) {
@@ -221,7 +371,6 @@ async function onAiPropose(playerInput) {
   let result;
   let usedBridge = false;
 
-  // Try bridge first, fall back to local mock
   try {
     const resp = await fetch(AI_BRIDGE_URL, {
       method: "POST",
@@ -231,142 +380,95 @@ async function onAiPropose(playerInput) {
     const data = await resp.json();
     usedBridge = true;
     result = {
-      ok: data.ok,
-      action: data.action,
+      ok: data.ok, action: data.action,
       reason: data.errors?.[0],
       rawText: JSON.stringify(data.action ?? data.errors),
       durationMs: data.durationMs ?? 0,
       mode: data.mode || "bridge",
     };
-    console.log(`[AI] Bridge response: ok=${data.ok} mode=${data.mode}`);
   } catch (err) {
-    // Bridge unreachable — fall back to local mock
-    console.log(`[AI] Bridge unreachable (${err.message}), using local mock`);
     result = proposeActionMock(gameState, playerInput);
   }
 
-  console.log(`[AI] Raw:   ${result.rawText}`);
-  console.log(`[AI] Parse: ok=${result.ok}${result.reason ? " — " + result.reason : ""}`);
-
-  // Update debug panel
   if (aiDebugEl) {
     aiDebugEl.textContent = JSON.stringify({
-      input: playerInput,
-      ok: result.ok,
+      input: playerInput, ok: result.ok,
       action: result.action ?? null,
       reason: result.reason ?? null,
       durationMs: result.durationMs,
-      mode: result.mode,
-      bridge: usedBridge,
+      mode: result.mode, bridge: usedBridge,
     }, null, 2);
   }
 
   if (!result.ok) {
-    const modeTag = result.mode || "mock";
-    showAiFeedback(`[${modeTag}] ✗ ${result.reason}`, "error");
+    showAiFeedback(`✗ ${result.reason}`, "error");
     return;
   }
 
-  // Pass validated action to engine
   showAiFeedback(`→ ${result.action.type}`, "pending");
   dispatch(result.action);
 
-  // Update AI feedback based on engine result
   const mode = result.mode || "mock";
   const lastEvent = gameState.log.events[gameState.log.events.length - 1];
   if (lastEvent?.type === "ACTION_REJECTED") {
-    showAiFeedback(`[${mode}] ✗ Engine rejected: ${lastEvent.payload.reasons?.[0] || "unknown"}`, "error");
-    console.log(`[AI] Engine: ✗ ACTION_REJECTED`);
+    showAiFeedback(`[${mode}] ✗ ${lastEvent.payload.reasons?.[0] || "unknown"}`, "error");
   } else {
     showAiFeedback(`[${mode}] ✓ ${lastEvent?.type || "OK"} (${result.durationMs}ms)`, "success");
-    console.log(`[AI] Engine: ✓ ${lastEvent?.type}`);
   }
 }
 
 function showAiFeedback(msg, className) {
-  if (aiFeedbackEl) {
-    aiFeedbackEl.textContent = msg;
-    aiFeedbackEl.className = className || "";
-  }
+  if (aiFeedbackEl) { aiFeedbackEl.textContent = msg; aiFeedbackEl.className = className || ""; }
 }
 
 // ── Replay Export/Import ────────────────────────────────────────────
 
 const replayFeedbackEl = document.getElementById("replay-feedback");
-
 function showReplayFeedback(msg, className) {
-  if (replayFeedbackEl) {
-    replayFeedbackEl.textContent = msg;
-    replayFeedbackEl.className = className || "";
-  }
+  if (replayFeedbackEl) { replayFeedbackEl.textContent = msg; replayFeedbackEl.className = className || ""; }
 }
 
 document.getElementById("btn-export-replay")?.addEventListener("click", () => {
   const bundle = {
-    meta: {
-      id: "session-" + Date.now(),
-      createdAt: new Date().toISOString(),
-      schemaVersion: "0.1.0",
-      engineVersion: "1.4",
-      notes: `UI session export (${sessionActions.length} actions)`,
-    },
+    meta: { id: "session-" + Date.now(), createdAt: new Date().toISOString(), schemaVersion: "0.1.0", engineVersion: "1.4", notes: `UI session export (${sessionActions.length} actions)` },
     initialState: sessionInitialState,
     steps: sessionActions.map((action) => ({ action })),
     final: { expectedStateHash: stateHash(gameState) },
   };
-
   const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = `replay-${bundle.meta.id}.json`;
-  a.click();
+  a.href = url; a.download = `replay-${bundle.meta.id}.json`; a.click();
   URL.revokeObjectURL(url);
-
   showReplayFeedback(`✓ Exported ${sessionActions.length} steps`, "success");
 });
 
 document.getElementById("replay-file-input")?.addEventListener("change", async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
-  e.target.value = ""; // reset for re-import
-
+  e.target.value = "";
   try {
     const text = await file.text();
     const bundle = JSON.parse(text);
-
-    if (!bundle.initialState || !Array.isArray(bundle.steps)) {
-      showReplayFeedback("✗ Invalid replay bundle", "error");
-      return;
-    }
-
-    // Load initial state
+    if (!bundle.initialState || !Array.isArray(bundle.steps)) { showReplayFeedback("✗ Invalid replay bundle", "error"); return; }
     gameState = structuredClone(bundle.initialState);
     showReplayFeedback(`⏳ Replaying ${bundle.steps.length} steps…`, "pending");
     render();
-
-    // Replay steps
     let stepOk = 0;
     for (const step of bundle.steps) {
       const result = applyAction(gameState, step.action);
-      gameState = result.nextState;
-      stepOk++;
-      render();
+      gameState = result.nextState; stepOk++; render();
     }
-
-    // Check final hash
     const finalHash = stateHash(gameState);
     if (bundle.final?.expectedStateHash && finalHash !== bundle.final.expectedStateHash) {
-      showReplayFeedback(`⚠ ${stepOk} steps replayed, hash mismatch: ${finalHash}`, "error");
+      showReplayFeedback(`⚠ ${stepOk} steps replayed, hash mismatch`, "error");
     } else {
-      showReplayFeedback(`✓ ${stepOk} steps replayed (hash: ${finalHash})`, "success");
+      showReplayFeedback(`✓ ${stepOk} steps replayed`, "success");
     }
-  } catch (err) {
-    showReplayFeedback(`✗ ${err.message}`, "error");
-  }
+  } catch (err) { showReplayFeedback(`✗ ${err.message}`, "error"); }
 });
 
-// ── Welcome Panel (MIR 4.1) ─────────────────────────────────────────────
+// ── Welcome Panel ───────────────────────────────────────────────────
 
 const replayStatusEl = document.getElementById("replay-status");
 const replaySelectEl = document.getElementById("replay-select");
@@ -381,29 +483,24 @@ function loadState(newState) {
   gameState = structuredClone(newState);
   sessionActions.length = 0;
   Object.assign(sessionInitialState, structuredClone(gameState));
+  if (narrationLogEl) narrationLogEl.innerHTML = "";
+  uiOverlay.floaters = [];
+  uiOverlay.pathPreview = [];
   render();
 }
 
 function updateIndicators() {
   if (indModeEl) {
     const mode = gameState.combat.mode;
-    indModeEl.textContent = mode === "combat"
-      ? `⚔ combat r${gameState.combat.round}`
-      : "🏕 exploration";
+    indModeEl.textContent = mode === "combat" ? `⚔ combat r${gameState.combat.round}` : "🏕 exploration";
   }
   if (indActiveEl) {
     const id = gameState.combat.activeEntityId;
     const ent = id ? findEntity(id) : null;
     indActiveEl.textContent = ent ? `▸ ${ent.name}` : "—";
   }
-  if (indSeedEl) {
-    indSeedEl.textContent = `seed: ${gameState.rng.seed || "—"}`;
-  }
-  // AI mode badge — probe bridge availability
-  if (indAiModeEl) {
-    indAiModeEl.textContent = `🤖 ${indAiModeEl.dataset.mode || "mock"}`;
-  }
-  // Invariant badge — lightweight check
+  if (indSeedEl) indSeedEl.textContent = `seed: ${gameState.rng.seed || "—"}`;
+  if (indAiModeEl) indAiModeEl.textContent = `🤖 ${indAiModeEl.dataset.mode || "mock"}`;
   if (indInvariantEl) {
     try {
       const allEnts = [...gameState.entities.players, ...gameState.entities.npcs, ...gameState.entities.objects];
@@ -418,10 +515,10 @@ function updateIndicators() {
   }
 }
 
-// Probe AI bridge mode on startup
+// Probe AI bridge
 (async () => {
   try {
-    const r = await fetch("http://localhost:3002/api/propose", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inputText: "ping", state: gameState, mode: "real" }) });
+    const r = await fetch(AI_BRIDGE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inputText: "ping", state: gameState, mode: "real" }) });
     const d = await r.json();
     if (indAiModeEl) { indAiModeEl.dataset.mode = d.mode || "mock"; indAiModeEl.textContent = `🤖 ${d.mode || "mock"}`; }
   } catch {
@@ -429,16 +526,11 @@ function updateIndicators() {
   }
 })();
 
-// ── Scenario Selector (MIR 4.2) ─────────────────────────────────────────
+// ── Scenario Selector ───────────────────────────────────────────────
 
 const scenarioSelectEl = document.getElementById("scenario-select");
 const btnLoadScenario = document.getElementById("btn-load-scenario");
-
-const SCENARIO_FILES = [
-  "tavern_skirmish.scenario.json",
-  "corridor_ambush.scenario.json",
-  "open_field_duel.scenario.json",
-];
+const SCENARIO_FILES = ["tavern_skirmish.scenario.json", "corridor_ambush.scenario.json", "open_field_duel.scenario.json"];
 
 function populateScenarioList() {
   if (!scenarioSelectEl) return;
@@ -454,19 +546,13 @@ btnLoadScenario?.addEventListener("click", async () => {
   const url = scenarioSelectEl?.value;
   if (!url) return;
   if (replayStatusEl) replayStatusEl.textContent = "⏳ Loading scenario…";
-
   try {
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const bundle = await resp.json();
     if (!bundle.initialState) throw new Error("Invalid scenario bundle");
-
     loadState(bundle.initialState);
-    if (replayStatusEl) {
-      replayStatusEl.textContent = `✓ ${bundle.meta?.name || "Scenario"} loaded`;
-      replayStatusEl.className = "success";
-    }
-    console.log(`[MIR 4.2] Scenario loaded: ${bundle.meta?.name}`);
+    if (replayStatusEl) { replayStatusEl.textContent = `✓ ${bundle.meta?.name || "Scenario"} loaded`; replayStatusEl.className = "success"; }
   } catch (err) {
     if (replayStatusEl) { replayStatusEl.textContent = `✗ ${err.message}`; replayStatusEl.className = "error"; }
   }
@@ -474,65 +560,48 @@ btnLoadScenario?.addEventListener("click", async () => {
 
 populateScenarioList();
 
-// Demo encounter button
 document.getElementById("btn-demo-encounter")?.addEventListener("click", () => {
   loadState(demoEncounter);
+  addNarration("🎲 Demo encounter loaded — Roll Initiative to begin!", "info");
   if (replayStatusEl) replayStatusEl.textContent = "✓ Demo encounter loaded";
-  console.log("[MIR 4.1] Demo encounter loaded");
 });
 
-// Replay selector — fetch available replays from server
 async function loadReplayList() {
   if (!replaySelectEl) return;
   const REPLAY_FILES = ["demo_showcase.replay.json", "combat_flow.replay.json", "rejected_move.replay.json"];
   for (const name of REPLAY_FILES) {
     const opt = document.createElement("option");
-    opt.value = `/replays/${name}`;
-    opt.textContent = name;
+    opt.value = `/replays/${name}`; opt.textContent = name;
     replaySelectEl.appendChild(opt);
   }
 }
 
-replaySelectEl?.addEventListener("change", () => {
-  if (btnRunReplay) btnRunReplay.disabled = !replaySelectEl.value;
-});
+replaySelectEl?.addEventListener("change", () => { if (btnRunReplay) btnRunReplay.disabled = !replaySelectEl.value; });
 
 btnRunReplay?.addEventListener("click", async () => {
   const url = replaySelectEl?.value;
   if (!url) return;
   btnRunReplay.disabled = true;
   if (replayStatusEl) replayStatusEl.textContent = "⏳ Loading…";
-
   try {
     const resp = await fetch(url);
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const bundle = await resp.json();
-    if (!bundle.initialState || !Array.isArray(bundle.steps)) {
-      throw new Error("Invalid replay bundle");
-    }
-
-    // Load initial state and render
-    gameState = structuredClone(bundle.initialState);
-    render();
+    if (!bundle.initialState || !Array.isArray(bundle.steps)) throw new Error("Invalid replay bundle");
+    gameState = structuredClone(bundle.initialState); render();
     if (replayStatusEl) replayStatusEl.textContent = `⏳ Replaying ${bundle.steps.length} steps…`;
-
-    // Play steps with delay for visibility
     let stepIdx = 0;
     for (const step of bundle.steps) {
-      await new Promise((r) => setTimeout(r, 600));
+      await sleep(600);
       const result = applyAction(gameState, step.action);
-      gameState = result.nextState;
-      stepIdx++;
+      gameState = result.nextState; stepIdx++;
       if (replayStatusEl) replayStatusEl.textContent = `Step ${stepIdx}/${bundle.steps.length}: ${step.action.type}`;
       render();
     }
-
     const finalHash = stateHash(gameState);
     const hashOk = !bundle.final?.expectedStateHash || finalHash === bundle.final.expectedStateHash;
     if (replayStatusEl) {
-      replayStatusEl.textContent = hashOk
-        ? `✓ ${stepIdx} steps replayed (hash: ${finalHash})`
-        : `⚠ ${stepIdx} steps, hash mismatch: ${finalHash}`;
+      replayStatusEl.textContent = hashOk ? `✓ ${stepIdx} steps replayed` : `⚠ ${stepIdx} steps, hash mismatch`;
       replayStatusEl.className = hashOk ? "success" : "error";
     }
   } catch (err) {
@@ -543,13 +612,12 @@ btnRunReplay?.addEventListener("click", async () => {
 
 loadReplayList();
 
-// ── Selection (UI-only state change) ────────────────────────────────────
+// ── Selection ───────────────────────────────────────────────────────────
 
 function onSelect(entityId) {
-  // UI selection is the one field we update locally.
-  // It does not affect game logic.
   gameState = structuredClone(gameState);
   gameState.ui.selectedEntityId = entityId;
+  uiOverlay.pathPreview = [];
   render();
 }
 
@@ -562,10 +630,15 @@ initInputController({
   dispatch,
   onSelect,
   onAiPropose,
+  onHoverCell,
 });
+
+// Start floater animation
+requestAnimationFrame(animateFloaters);
 
 // Initial render
 render();
+addNarration("🎲 MIR Tabletop Engine loaded. Select a scenario or start the demo encounter!", "info");
 
-console.log("MIR 3.3 — Tabletop Engine UI loaded");
+console.log("MIR S0.8 — Tabletop Engine UI loaded");
 console.log("State:", gameState.map.name, `${gameState.map.grid.size.width}×${gameState.map.grid.size.height}`);

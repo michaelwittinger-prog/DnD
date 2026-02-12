@@ -24,8 +24,9 @@ const CELL_ACTIVE = "#ffcc00";
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} state — GameState
  * @param {number} cellPx — pixels per cell
+ * @param {object} [uiOverlay] — optional overlay data (path preview, damage floaters)
  */
-export function renderGrid(ctx, state, cellPx) {
+export function renderGrid(ctx, state, cellPx, uiOverlay) {
   const { width, height } = state.map.grid.size;
   const W = width * cellPx;
   const H = height * cellPx;
@@ -100,6 +101,49 @@ export function renderGrid(ctx, state, cellPx) {
         cellPx - 2
       );
       ctx.setLineDash([]);
+    }
+  }
+
+  // 6. Path preview overlay
+  if (uiOverlay?.pathPreview && uiOverlay.pathPreview.length > 0) {
+    ctx.fillStyle = "rgba(100, 200, 255, 0.25)";
+    for (const step of uiOverlay.pathPreview) {
+      ctx.fillRect(step.x * cellPx + 2, step.y * cellPx + 2, cellPx - 4, cellPx - 4);
+    }
+    // Highlight destination
+    const dest = uiOverlay.pathPreview[uiOverlay.pathPreview.length - 1];
+    ctx.strokeStyle = "rgba(100, 200, 255, 0.6)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(dest.x * cellPx + 2, dest.y * cellPx + 2, cellPx - 4, cellPx - 4);
+  }
+
+  // 7. Attack range indicators (adjacent cells of active entity)
+  if (uiOverlay?.attackTargets) {
+    for (const pos of uiOverlay.attackTargets) {
+      ctx.strokeStyle = "rgba(255, 80, 80, 0.6)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 2]);
+      ctx.strokeRect(pos.x * cellPx + 1, pos.y * cellPx + 1, cellPx - 2, cellPx - 2);
+      ctx.setLineDash([]);
+    }
+  }
+
+  // 8. Damage floaters
+  if (uiOverlay?.floaters) {
+    for (const f of uiOverlay.floaters) {
+      const age = (Date.now() - f.startTime) / f.duration;
+      if (age > 1) continue;
+      const alpha = 1 - age;
+      const yOff = age * 30;
+      const cx = f.x * cellPx + cellPx / 2;
+      const cy = f.y * cellPx - yOff;
+      ctx.font = `bold 14px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.fillStyle = f.color
+        ? f.color.replace("1)", `${alpha})`)
+        : `rgba(255, 80, 80, ${alpha})`;
+      ctx.fillText(f.text, cx, cy);
     }
   }
 }
