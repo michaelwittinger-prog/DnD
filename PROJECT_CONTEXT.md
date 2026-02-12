@@ -338,7 +338,7 @@ Graceful shutdown on SIGINT/SIGTERM/SIGHUP.
 |--------|---------|
 | `npm run ui` | Start UI server (auto-kills stale port) |
 | `npm run ui:stop` | Kill whatever is on port 3001 |
-| `npm run test:all` | Run all 13 test suites (932 tests) |
+| `npm run test:all` | Run all 15 test suites (946 tests) |
 
 ## Documentation Concept
 
@@ -372,5 +372,23 @@ After every task completion:
 - Phase 4.0: complete (viewer interaction + observability)
 - Phase 5.0: complete (player intent capture + one-click turn execution)
 - Phase S0: complete (pathfinding, death/combat end, NPC strategy, narration, combat controller, UI upgrade)
-- Phase S1: complete (ability system, condition system, range validation — 932 tests)
-- Phase S2+: pending (see `docs/mir_product_roadmap.md`)
+- Phase S1: complete (ability system, condition system, range validation, zoom/pan, sounds, initiative tracker, scenario polish — 932 tests)
+- Phase S2: in progress (session save/load, auto-save, import/export, campaign model, character persistence — 946 tests)
+- Phase S3+: pending (see `docs/mir_product_roadmap.md`)
+
+## Phase S2 — Persistence
+
+### Key files
+
+- `src/persistence/sessionStore.mjs` — IndexedDB CRUD for sessions (save, load, list, delete, clear), auto-save helper, session export/import
+- `src/persistence/campaignStore.mjs` — Campaign model (ordered session lists, entity roster), CRUD, roster apply/update, campaign export/import
+- `tests/persistence_test.mjs` — 14 tests: roster apply, campaign export/import, module structure
+
+### Features
+
+- **S2.1** Session save/load via IndexedDB
+- **S2.2** Campaign model with ordered session list + shared entity roster
+- **S2.3** Auto-save on every dispatch (2s throttle)
+- **S2.4** Character persistence across sessions (roster snapshot + restore)
+- **S2.5** Session import/export as JSON files (`mir-session` format)
+- **UI** Save/Load sidebar section with manual save, load list, delete, export, import buttons

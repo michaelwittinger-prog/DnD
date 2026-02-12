@@ -5,6 +5,33 @@
 
 ---
 
+## 2026-02-12 — Session 8: Sprint 1 Polish + Sprint 2 Persistence
+
+**Commit:** `pending` | **Tests:** 946 | **Modules:** 19 engine + 2 persistence
+
+### Built
+- **S1.6 Map Zoom/Pan** — Mouse wheel zoom (50%–250%), zoom buttons, reset. Canvas transforms with `transformOrigin: top left`.
+- **S1.8 Sound Effects** — Synthesized audio via Web Audio API: move, hit, miss, kill, initiative, turn start, error, combat end. Toggle button. No external audio files.
+- **S1.9 Initiative Tracker** — Rich sidebar component with HP bars, condition icons (💫☠⬇✨🔥), active turn highlighting, dead entity styling.
+- **S1.7 Scenario Polish** — All 3 scenarios enhanced with conditions: tavern (blessed Seren, poisoned goblin), corridor (prone bandit), field (blessed knight, burning squire).
+- **S2.1 Session Save/Load** (`src/persistence/sessionStore.mjs`) — IndexedDB CRUD for game sessions. Save, load, list, delete, clear.
+- **S2.3 Auto-Save** — Throttled auto-save (2s debounce) after every dispatch. Visual feedback in UI.
+- **S2.5 Import/Export** — Session export to JSON file download, import from file upload. `mir-session` format with version.
+- **S2.2 Campaign Model** (`src/persistence/campaignStore.mjs`) — Campaign CRUD, ordered session lists, shared entity roster. Export/import campaign bundles.
+- **S2.4 Character Persistence** — `updateRosterFromState()` snapshots players after sessions (strips "dead"). `applyRosterToState()` restores characters for next session.
+- **Save/Load UI** — Sidebar section with save/load/export/import buttons, save list with timestamps, load/delete per entry.
+
+### Test delta: +14 (932 → 946)
+- `tests/persistence_test.mjs` — 14 tests: applyRosterToState (6), exportCampaign (2), importCampaign (4), module structure (2)
+
+### Commits in this session
+- `d914e5c` feat: S1.6+S1.8+S1.9 — zoom/pan, sounds, initiative tracker
+- `10cedf1` feat: S1.7 — polished scenarios with conditions
+- `497bc8f` feat: S2.1+S2.3+S2.5 — session persistence
+- `pending` feat: S2.2+S2.4 — campaign model + character persistence
+
+---
+
 ## 2026-02-12 — Session 7: Sprint 1 Integration + Documentation System
 
 **Commit:** `4034104` | **Tests:** 932 | **Modules:** 17 engine
