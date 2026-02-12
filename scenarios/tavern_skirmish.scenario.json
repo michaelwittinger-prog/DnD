@@ -2,13 +2,14 @@
   "meta": {
     "id": "tavern-skirmish",
     "name": "Tavern Skirmish",
-    "description": "A goblin lurks in The Rusty Tankard. Walls and tables create tight quarters.",
+    "description": "A goblin lurks in The Rusty Tankard. Walls and tables create tight quarters. Seren is blessed from a morning prayer. The goblin has been drinking the poisoned ale.",
     "recommendedPlayers": 2,
     "difficulty": "easy",
     "tags": [
       "combat",
       "tavern",
-      "tutorial"
+      "tutorial",
+      "conditions"
     ]
   },
   "initialState": {
@@ -106,7 +107,7 @@
             "ac": 16,
             "movementSpeed": 6
           },
-          "conditions": [],
+          "conditions": ["blessed"],
           "inventory": [
             {
               "id": "item-longsword",
@@ -222,7 +223,7 @@
             "ac": 13,
             "movementSpeed": 6
           },
-          "conditions": [],
+          "conditions": ["poisoned"],
           "inventory": [],
           "token": {
             "style": "mini",

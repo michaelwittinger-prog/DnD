@@ -2,13 +2,15 @@
   "meta": {
     "id": "corridor-ambush",
     "name": "Narrow Corridor Ambush",
-    "description": "A dungeon corridor with pillars forces careful movement. Two bandits wait in ambush.",
+    "description": "A dungeon corridor with pillars forces careful movement. The lead bandit stumbled on rubble (prone). Difficult terrain of collapsed stone litters the center.",
     "recommendedPlayers": 2,
     "difficulty": "medium",
     "tags": [
       "combat",
       "dungeon",
-      "tactical"
+      "tactical",
+      "conditions",
+      "difficult-terrain"
     ]
   },
   "initialState": {
@@ -217,7 +219,7 @@
             "ac": 12,
             "movementSpeed": 6
           },
-          "conditions": [],
+          "conditions": ["prone"],
           "inventory": [],
           "token": {
             "style": "mini",

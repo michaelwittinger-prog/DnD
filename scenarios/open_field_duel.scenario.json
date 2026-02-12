@@ -2,13 +2,15 @@
   "meta": {
     "id": "open-field-duel",
     "name": "Open Field Duel",
-    "description": "A quick duel on an open field. Minimal terrain, fast combat.",
+    "description": "A quick duel on an open field. The Dark Knight wears a divine blessing. His squire caught a stray ember and is burning. Muddy patches slow movement through the center.",
     "recommendedPlayers": 2,
-    "difficulty": "easy",
+    "difficulty": "medium",
     "tags": [
       "combat",
       "duel",
-      "quick"
+      "quick",
+      "conditions",
+      "difficult-terrain"
     ]
   },
   "initialState": {
@@ -187,7 +189,7 @@
             "ac": 15,
             "movementSpeed": 6
           },
-          "conditions": [],
+          "conditions": ["blessed"],
           "inventory": [],
           "token": {
             "style": "mini",
@@ -213,7 +215,7 @@
             "ac": 11,
             "movementSpeed": 6
           },
-          "conditions": [],
+          "conditions": ["burning"],
           "inventory": [],
           "token": {
             "style": "mini",
