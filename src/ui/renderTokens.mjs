@@ -19,8 +19,9 @@ const DEAD_COLOR = "#333333";
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} state — GameState
  * @param {number} cellPx — pixels per cell
+ * @param {object} [uiOverlay] — optional overlay data (visibleCells for fog)
  */
-export function renderTokens(ctx, state, cellPx) {
+export function renderTokens(ctx, state, cellPx, uiOverlay) {
   const entities = [
     ...state.entities.players,
     ...state.entities.npcs,
@@ -31,6 +32,12 @@ export function renderTokens(ctx, state, cellPx) {
   const selectedId = state.ui.selectedEntityId;
 
   for (const ent of entities) {
+    // Fog of War: hide non-player entities on non-visible cells
+    if (uiOverlay?.visibleCells && state.map.fogOfWarEnabled && ent.kind !== "player") {
+      const cellKey = `${ent.position.x},${ent.position.y}`;
+      if (!uiOverlay.visibleCells.has(cellKey)) continue;
+    }
+
     const cx = ent.position.x * cellPx + cellPx / 2;
     const cy = ent.position.y * cellPx + cellPx / 2;
     const radius = cellPx * 0.36;

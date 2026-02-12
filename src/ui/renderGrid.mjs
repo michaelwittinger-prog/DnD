@@ -146,6 +146,18 @@ export function renderGrid(ctx, state, cellPx, uiOverlay) {
       ctx.fillText(f.text, cx, cy);
     }
   }
+
+  // 9. Fog of War overlay
+  if (uiOverlay?.visibleCells && state.map.fogOfWarEnabled) {
+    for (let x = 0; x < width; x++) {
+      for (let y = 0; y < height; y++) {
+        if (!uiOverlay.visibleCells.has(`${x},${y}`)) {
+          ctx.fillStyle = "rgba(10, 10, 20, 0.75)";
+          ctx.fillRect(x * cellPx, y * cellPx, cellPx, cellPx);
+        }
+      }
+    }
+  }
 }
 
 function findEntity(state, id) {

@@ -22,6 +22,7 @@ import { isNpcTurn } from "../engine/npcTurnStrategy.mjs";
 import { findPath, isAdjacent } from "../engine/pathfinding.mjs";
 import { initSounds, setSoundEnabled, isSoundEnabled, playMove, playHit, playMiss, playKill, playInitiative, playTurnStart, playError, playCombatEnd } from "./sounds.mjs";
 import { saveSession, loadSession, listSessions, deleteSession, initAutoSave, exportSessionToFile, importSessionFromFile } from "../persistence/sessionStore.mjs";
+import { computeVisibleCells } from "../engine/visibility.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -71,8 +72,15 @@ function render() {
   // Compute attack targets for active entity
   computeAttackTargets();
 
+  // Compute fog of war visibility (S1.5)
+  if (gameState.map.fogOfWarEnabled) {
+    uiOverlay.visibleCells = computeVisibleCells(gameState, "players");
+  } else {
+    uiOverlay.visibleCells = null;
+  }
+
   renderGrid(ctx, gameState, CELL_PX, uiOverlay);
-  renderTokens(ctx, gameState, CELL_PX);
+  renderTokens(ctx, gameState, CELL_PX, uiOverlay);
 
   renderHeader();
   renderSelectedInfo();
@@ -230,7 +238,7 @@ function animateFloaters() {
     canvas.width = width * CELL_PX;
     canvas.height = height * CELL_PX;
     renderGrid(ctx, gameState, CELL_PX, uiOverlay);
-    renderTokens(ctx, gameState, CELL_PX);
+    renderTokens(ctx, gameState, CELL_PX, uiOverlay);
   }
   requestAnimationFrame(animateFloaters);
 }
