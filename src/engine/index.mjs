@@ -32,3 +32,7 @@ export {
   applyDifficultyToEntities, selectTarget, shouldAttack, shouldUseAbility,
   getAttackDifficultyModifier, getDamageDifficultyModifier, getAcDifficultyModifier,
 } from "./difficulty.mjs";
+export {
+  planMultiActionTurn, summarizePlan, isPlanWithinBudget,
+  ACTION_BUDGET, ABILITY_SLOTS, getAbilitySlot,
+} from "./multiActionTurn.mjs";
