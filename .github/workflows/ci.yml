@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate & Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Gate 1: Schema & Invariant Validation ──────────────────
+      - name: Validate game state schema
+        run: npm run validate
+
+      - name: Smoke mutation test
+        run: npm run smoke
+
+      - name: Check invariants
+        run: npm run invariants
+
+      - name: Run fixtures
+        run: npm run fixtures
+
+      # ── Gate 2: Full Test Suite (1600+ tests) ──────────────────
+      - name: Run all tests
+        run: npm run test:all
+
+      # ── Gate 3: TypeScript Type-Check (advisory) ───────────────
+      - name: TypeScript check
+        run: npm run typecheck || echo "::warning::TypeScript check found errors (non-blocking)"
+        continue-on-error: true
+
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript error count
+        run: |
+          count=$(npx tsc --noEmit 2>&1 | grep -c "error TS" || true)
+          echo "## TypeScript Errors: $count" >> $GITHUB_STEP_SUMMARY
+          echo "Target: 0 (progressive migration)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Test count summary
+        run: |
+          output=$(npm run test:all 2>&1 || true)
+          passed=$(echo "$output" | grep -oP 'pass \K\d+' | tail -1 || echo "?")
+          failed=$(echo "$output" | grep -oP 'fail \K\d+' | tail -1 || echo "?")
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Passed: $passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Failed: $failed" >> $GITHUB_STEP_SUMMARY

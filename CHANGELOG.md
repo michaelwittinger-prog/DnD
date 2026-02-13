@@ -5,6 +5,36 @@
 
 ---
 
+## 2026-02-13 — Session 19: DevOps — Git Cleanup + TypeScript + CI/CD
+
+**Commit:** pending | **Tests:** 1600 | **Status:** Infrastructure
+
+### Git Commit Cleanup
+- Committed all pending work from Sessions 12–18 (previously uncommitted) into 4 clean, logical commits:
+  - `79ca0c6` Sessions 12-13: Sprint 3 complete + Tier 5/6 tests (+186 tests)
+  - `198f100` Sessions 14-15: Content systems (multi-action, encounter, character, scenario)
+  - `4ce3c88` Sessions 16-17: Tier 7 NLP pipeline (intent system + LLM parser)
+  - `ae919b0` Session 18: Roadmap refresh + UI intent wiring + docs
+- Repo now has clean linear history, no uncommitted work
+
+### TypeScript Infrastructure
+- **`tsconfig.json`** — ESM-aware config with `allowJs: true`, `checkJs: true` for progressive JSDoc-based type checking. Excludes auto-generated files, tests, and DOM-heavy UI files.
+- **`npm run typecheck`** — Runs `tsc --noEmit` against src/ business logic
+- **Baseline:** 276 TS errors (mostly untyped parameters in dynamic JS patterns). Progressive annotation path — no file renames needed.
+- **Dependencies:** `typescript@^5.9.3`, `@types/node` added as devDependencies
+
+### CI/CD Pipeline
+- **`.github/workflows/ci.yml`** — GitHub Actions workflow on push/PR to main:
+  - **Gate 1 (blocking):** Schema validation, smoke test, invariants, fixtures
+  - **Gate 2 (blocking):** Full test suite (`npm run test:all` — 1600+ tests, 26 test files)
+  - **Gate 3 (advisory):** TypeScript type-check (non-blocking, `continue-on-error`)
+  - **Quality job:** TS error count + test count in GitHub Step Summary
+  - **Matrix:** Node.js 20 + 22
+- **`npm run test:all`** — Now uses `node --test` runner with all 26 test files in one command (faster parallel execution)
+- Added 6 missing individual test scripts: `test:intent`, `test:llm-parser`, `test:multi-action`, `test:encounter`, `test:character`, `test:scenario-builder`
+
+---
+
 ## 2026-02-12 — Session 18: Roadmap Refresh + UI Intent Wiring
 
 **Commit:** pending | **Tests:** 1600 | **Status:** Integration Phase
