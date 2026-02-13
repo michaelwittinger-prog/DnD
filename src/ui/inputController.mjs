@@ -10,6 +10,22 @@
 import { findPath, isAdjacent } from "../engine/pathfinding.mjs";
 
 /**
+ * Chebyshev distance (diagonal = 1 cell).
+ */
+function gridDistance(a, b) {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+/**
+ * Check if a target is within an entity's attack range.
+ * Falls back to adjacency (range 1) if no attackRange defined.
+ */
+function isInAttackRange(attacker, target) {
+  const range = attacker.stats?.attackRange ?? 1;
+  return gridDistance(attacker.position, target.position) <= range;
+}
+
+/**
  * Find the entity at a given grid cell, or null.
  */
 function entityAtCell(state, gx, gy) {
@@ -82,12 +98,12 @@ export function initInputController({ canvas, cellPx, getState, dispatch, onSele
       // If in combat and clicking a hostile while it's our turn → ATTACK
       if (inCombat && activeEntity && clickedEntity.id !== activeId) {
         if (isHostile(state, activeEntity, clickedEntity) && !clickedEntity.conditions.includes("dead")) {
-          // Check if adjacent for melee
-          if (isAdjacent(activeEntity.position, clickedEntity.position)) {
+          // Check if within weapon attack range
+          if (isInAttackRange(activeEntity, clickedEntity)) {
             dispatch({ type: "ATTACK", attackerId: activeId, targetId: clickedEntity.id });
             return;
           }
-          // Not adjacent — select the hostile (user can then move closer)
+          // Out of range — select the hostile (user can then move closer)
         }
       }
 

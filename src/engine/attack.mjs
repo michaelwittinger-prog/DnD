@@ -14,6 +14,13 @@ import { rollD20, rollDice } from "./rng.mjs";
 import { getAcModifier, getAttackModifier, hasAttackDisadvantage, shouldSkipTurn } from "./conditions.mjs";
 
 /**
+ * Chebyshev distance (diagonal = 1 cell).
+ */
+function gridDistance(a, b) {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+/**
  * Validate and apply an ATTACK action.
  *
  * @param {object} state — cloned GameState (will be mutated)
@@ -49,6 +56,13 @@ export function applyAttack(state, action) {
   // Stunned attacker cannot attack
   if (shouldSkipTurn(attacker) && !attacker.conditions.includes("dead")) {
     return { ok: false, errors: [makeError(ErrorCode.INVALID_ACTION, `Attacker "${attackerId}" is stunned and cannot act`)] };
+  }
+
+  // Range check — weapon range defaults to 1 (melee) if not specified
+  const dist = gridDistance(attacker.position, target.position);
+  const attackRange = attacker.stats.attackRange ?? 1;
+  if (dist > attackRange) {
+    return { ok: false, errors: [makeError(ErrorCode.OUT_OF_RANGE, `Target at distance ${dist}, attack range is ${attackRange}`)] };
   }
 
   // Roll to hit (d20 vs AC, with condition modifiers)

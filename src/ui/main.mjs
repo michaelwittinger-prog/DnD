@@ -10,7 +10,7 @@
  */
 
 import { applyAction } from "../engine/applyAction.mjs";
-import { proposeActionMock } from "../ai/aiClient.mjs";
+import { executeIntent } from "../ai/intentExecutor.mjs";
 import { explorationExample, demoEncounter } from "../state/exampleStates.mjs";
 import { stateHash } from "../replay/hash.mjs";
 import { renderGrid } from "./renderGrid.mjs";
@@ -24,6 +24,8 @@ import { initSounds, setSoundEnabled, isSoundEnabled, playMove, playHit, playMis
 import { saveSession, loadSession, listSessions, deleteSession, initAutoSave, exportSessionToFile, importSessionFromFile } from "../persistence/sessionStore.mjs";
 import { computeVisibleCells } from "../engine/visibility.mjs";
 import { applyDifficultyToEntities, getDifficulty } from "../engine/difficulty.mjs";
+import { listPresets, PRESET_CHARACTERS } from "../content/characterCreator.mjs";
+import { listMapTemplates, buildScenario } from "../content/scenarioBuilder.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -409,59 +411,66 @@ function onHoverCell(gx, gy) {
 
 const aiFeedbackEl = document.getElementById("ai-feedback");
 const aiDebugEl = document.getElementById("ai-debug");
-const AI_BRIDGE_URL = "http://localhost:3002/api/propose";
+
+// ── AI Mode ─────────────────────────────────────────────────────────
+// "mock"  = instant keyword parser (always works, no API needed)
+// "intent" = synonym for mock (the full Parse → Plan → Execute pipeline)
+// The intent system IS the primary AI path. It uses the mock parser
+// for intent classification (instant), then plans and executes via engine.
 
 async function onAiPropose(playerInput) {
   console.log(`[AI] Input: "${playerInput}"`);
-  showAiFeedback("⏳ Thinking…", "pending");
+  showAiFeedback("⏳ Processing…", "pending");
 
-  let result;
-  let usedBridge = false;
-
-  try {
-    const resp = await fetch(AI_BRIDGE_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inputText: playerInput, state: gameState, mode: "real" }),
-    });
-    const data = await resp.json();
-    usedBridge = true;
-    result = {
-      ok: data.ok, action: data.action,
-      reason: data.errors?.[0],
-      rawText: JSON.stringify(data.action ?? data.errors),
-      durationMs: data.durationMs ?? 0,
-      mode: data.mode || "bridge",
-    };
-  } catch (err) {
-    result = proposeActionMock(gameState, playerInput);
-  }
+  // ── Intent System (Parse → Plan → Execute) ─────────────────────
+  const intentResult = executeIntent(gameState, playerInput);
+  const mode = "intent";
 
   if (aiDebugEl) {
     aiDebugEl.textContent = JSON.stringify({
-      input: playerInput, ok: result.ok,
-      action: result.action ?? null,
-      reason: result.reason ?? null,
-      durationMs: result.durationMs,
-      mode: result.mode, bridge: usedBridge,
+      input: playerInput, ok: intentResult.ok,
+      intent: intentResult.intent?.type ?? null,
+      actionsExecuted: intentResult.actionsExecuted ?? 0,
+      narrationHint: intentResult.narrationHint ?? null,
+      error: intentResult.error ?? null,
+      durationMs: intentResult.durationMs,
+      mode,
     }, null, 2);
   }
 
-  if (!result.ok) {
-    showAiFeedback(`✗ ${result.reason}`, "error");
+  if (!intentResult.ok) {
+    showAiFeedback(`✗ ${intentResult.narrationHint || intentResult.error || "Could not understand"}`, "error");
+    addNarration(`⚠ ${intentResult.narrationHint || intentResult.error || "Unknown command"}`, "error");
     return;
   }
 
-  showAiFeedback(`→ ${result.action.type}`, "pending");
-  dispatch(result.action);
+  // Intent system succeeded — update state and show results
+  const prevState = gameState;
+  gameState = intentResult.state;
+  sessionActions.push(...(intentResult.actions || []));
 
-  const mode = result.mode || "mock";
-  const lastEvent = gameState.log.events[gameState.log.events.length - 1];
-  if (lastEvent?.type === "ACTION_REJECTED") {
-    showAiFeedback(`[${mode}] ✗ ${lastEvent.payload.reasons?.[0] || "unknown"}`, "error");
-  } else {
-    showAiFeedback(`[${mode}] ✓ ${lastEvent?.type || "OK"} (${result.durationMs}ms)`, "success");
+  // Process events for visuals and narration
+  for (const evt of (intentResult.events || [])) {
+    processEventVisuals(evt, prevState);
+    addNarration(narrateEvent(evt, gameState));
   }
+
+  // Show the narration hint from the planner
+  if (intentResult.narrationHint) {
+    addNarration(`🗣 ${intentResult.narrationHint}`, "info");
+  }
+
+  render();
+
+  // Auto-save after intent execution
+  if (autoSaver) autoSaver.schedule();
+
+  // Check for NPC turn
+  if (gameState.combat.mode === "combat" && isNpcTurn(gameState) && !npcTurnRunning) {
+    scheduleNpcTurn();
+  }
+
+  showAiFeedback(`[${mode}] ✓ ${intentResult.intent?.type || "OK"} → ${intentResult.actionsExecuted} action(s) (${intentResult.durationMs}ms)`, "success");
 }
 
 function showAiFeedback(msg, className) {
@@ -562,16 +571,8 @@ function updateIndicators() {
   }
 }
 
-// Probe AI bridge
-(async () => {
-  try {
-    const r = await fetch(AI_BRIDGE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ inputText: "ping", state: gameState, mode: "real" }) });
-    const d = await r.json();
-    if (indAiModeEl) { indAiModeEl.dataset.mode = d.mode || "mock"; indAiModeEl.textContent = `🤖 ${d.mode || "mock"}`; }
-  } catch {
-    if (indAiModeEl) { indAiModeEl.dataset.mode = "offline"; indAiModeEl.textContent = "🤖 offline"; }
-  }
-})();
+// Set AI mode indicator — intent system is always active
+if (indAiModeEl) { indAiModeEl.dataset.mode = "intent"; indAiModeEl.textContent = "🤖 intent"; }
 
 // ── Scenario Selector ───────────────────────────────────────────────
 
@@ -635,6 +636,135 @@ document.getElementById("btn-demo-encounter")?.addEventListener("click", () => {
   addNarration(`🎲 Demo encounter loaded (${preset.label}) — Roll Initiative to begin!`, "info");
   if (replayStatusEl) replayStatusEl.textContent = `✓ Demo loaded (${preset.label})`;
 });
+
+// ── Custom Encounter Builder (Tier 6.2 + 6.4) ──────────────────────────
+
+const mapSelectEl = document.getElementById("map-select");
+const partyChecksEl = document.getElementById("party-checkboxes");
+const builderDiffEl = document.getElementById("builder-difficulty");
+const builderPreviewEl = document.getElementById("builder-preview");
+const builderFeedbackEl = document.getElementById("builder-feedback");
+
+function populateBuilderPanel() {
+  // Maps
+  if (mapSelectEl) {
+    const maps = listMapTemplates();
+    for (const m of maps) {
+      const opt = document.createElement("option");
+      opt.value = m.templateId;
+      opt.textContent = `${m.name} (${m.size.width}×${m.size.height})`;
+      mapSelectEl.appendChild(opt);
+    }
+  }
+  // Party presets
+  if (partyChecksEl) {
+    const presets = listPresets();
+    for (const p of presets) {
+      const tmpl = PRESET_CHARACTERS[p.presetId];
+      const label = document.createElement("label");
+      label.className = "party-check-label";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.value = p.presetId;
+      cb.checked = true;
+      cb.addEventListener("change", updateBuilderPreview);
+      label.appendChild(cb);
+      label.append(` ${p.name} (${p.classId})`);
+      partyChecksEl.appendChild(label);
+    }
+  }
+  updateBuilderPreview();
+}
+
+function getSelectedPartyIds() {
+  if (!partyChecksEl) return [];
+  return [...partyChecksEl.querySelectorAll("input:checked")].map(cb => cb.value);
+}
+
+function updateBuilderPreview() {
+  if (!builderPreviewEl) return;
+  const partyIds = getSelectedPartyIds();
+  const mapId = mapSelectEl?.value;
+  const diff = builderDiffEl?.value || "normal";
+  if (!partyIds.length || !mapId) {
+    builderPreviewEl.textContent = "Select at least one party member and a map.";
+    return;
+  }
+  builderPreviewEl.textContent = `🗺 ${mapId} · 🧙 ${partyIds.length} heroes · ⚙ ${diff}`;
+}
+
+mapSelectEl?.addEventListener("change", updateBuilderPreview);
+builderDiffEl?.addEventListener("change", updateBuilderPreview);
+
+document.getElementById("btn-generate-play")?.addEventListener("click", () => {
+  const partyIds = getSelectedPartyIds();
+  const mapId = mapSelectEl?.value;
+  const diff = builderDiffEl?.value || "normal";
+
+  if (!partyIds.length) {
+    if (builderFeedbackEl) { builderFeedbackEl.textContent = "⚠ Select at least one party member"; builderFeedbackEl.className = "error"; }
+    return;
+  }
+  if (!mapId) {
+    if (builderFeedbackEl) { builderFeedbackEl.textContent = "⚠ Select a map template"; builderFeedbackEl.className = "error"; }
+    return;
+  }
+
+  const seed = Math.floor(Math.random() * 100000);
+  const { scenario, errors } = buildScenario({
+    name: `Custom ${mapId} Encounter`,
+    description: `Player-created ${diff} encounter.`,
+    mapTemplateId: mapId,
+    partyPresetIds: partyIds,
+    difficulty: diff,
+    seed,
+  });
+
+  if (errors.length > 0 || !scenario) {
+    if (builderFeedbackEl) { builderFeedbackEl.textContent = `✗ ${errors.join(", ")}`; builderFeedbackEl.className = "error"; }
+    return;
+  }
+
+  // Normalize scenario state to match UI expectations
+  const s = scenario.initialState;
+  const rawTerrain = s.map.terrain;
+  const terrainArray = Array.isArray(rawTerrain)
+    ? rawTerrain
+    : (rawTerrain && typeof rawTerrain === "object" ? Object.values(rawTerrain) : []);
+  const normalizedState = {
+    schemaVersion: s.schemaVersion || "0.5.0",
+    map: {
+      name: scenario.meta.name,
+      grid: s.map.grid,
+      terrain: terrainArray,
+      fogOfWarEnabled: s.map.fogOfWar?.enabled ?? false,
+    },
+    entities: s.entities,
+    combat: {
+      mode: s.combat.active ? "combat" : "exploration",
+      round: s.combat.round || 0,
+      initiativeOrder: s.combat.initiativeOrder || [],
+      activeEntityId: s.combat.activeEntityId || null,
+    },
+    log: { events: s.eventLog || [] },
+    rng: { mode: "seeded", seed: String(seed), current: s.rng?.current ?? seed },
+    ui: { selectedEntityId: null },
+  };
+
+  loadState(normalizedState);
+  const preset = getDifficulty({ difficulty: diff });
+  addNarration(`🛠 Custom encounter generated: ${partyIds.length} heroes vs ${scenario.meta.monsterCount} monsters on ${scenario.meta.mapTemplate} (${preset.label})`, "info");
+  if (builderFeedbackEl) { builderFeedbackEl.textContent = `✓ Generated! ${partyIds.length} heroes vs ${scenario.meta.monsterCount} monsters`; builderFeedbackEl.className = "success"; }
+  if (replayStatusEl) replayStatusEl.textContent = `✓ Custom encounter (${preset.label})`;
+
+  // Close the details panel
+  const detailsEl = document.getElementById("create-encounter-panel");
+  if (detailsEl) detailsEl.open = false;
+});
+
+populateBuilderPanel();
+
+// ── Replay List ─────────────────────────────────────────────────────────
 
 async function loadReplayList() {
   if (!replaySelectEl) return;

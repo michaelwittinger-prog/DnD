@@ -22,6 +22,7 @@ export const ErrorCode = Object.freeze({
   TARGET_DEAD:      "TARGET_DEAD",
   PATH_EMPTY:       "PATH_EMPTY",
   POST_INVARIANT:   "POST_INVARIANT_FAILED",
+  BUDGET_EXHAUSTED: "BUDGET_EXHAUSTED",
 });
 
 /**

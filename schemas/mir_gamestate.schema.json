@@ -123,6 +123,17 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "description": "Ordered list of entity ids for turn sequence. Empty in exploration mode."
+        },
+        "turnBudget": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Tracks actions consumed in the current turn. Reset on END_TURN.",
+          "properties": {
+            "movementUsed": { "type": "integer", "minimum": 0 },
+            "actionUsed": { "type": "integer", "minimum": 0 },
+            "bonusActionUsed": { "type": "integer", "minimum": 0 }
+          },
+          "required": ["movementUsed", "actionUsed", "bonusActionUsed"]
         }
       }
     },

@@ -95,6 +95,56 @@ function validateTurnOrder(state, action) {
   return errors;
 }
 
+// ── Turn Budget Defaults ────────────────────────────────────────────────
+
+/** @returns {{ movementUsed: number, actionUsed: number, bonusActionUsed: number }} */
+export function defaultTurnBudget() {
+  return { movementUsed: 0, actionUsed: 0, bonusActionUsed: 0 };
+}
+
+/**
+ * Ensure combat.turnBudget exists (backwards-compat with old states).
+ * @param {object} state
+ */
+function ensureTurnBudget(state) {
+  if (state.combat.mode === "combat" && !state.combat.turnBudget) {
+    state.combat.turnBudget = defaultTurnBudget();
+  }
+}
+
+/**
+ * Validate action budget for combat actions.
+ * Rejects MOVE if movement already used, ATTACK if action already used.
+ * @param {object} state
+ * @param {DeclaredAction} action
+ * @returns {Array<{code:string,message:string}>}
+ */
+function validateActionBudget(state, action) {
+  if (state.combat.mode !== "combat") return [];
+  const budget = state.combat.turnBudget;
+  if (!budget) return []; // backwards compat — no budget field yet
+
+  if (action.type === "MOVE" && budget.movementUsed >= 1) {
+    return [makeError(ErrorCode.BUDGET_EXHAUSTED ?? "BUDGET_EXHAUSTED", "Movement already used this turn")];
+  }
+  if (action.type === "ATTACK" && budget.actionUsed >= 1) {
+    return [makeError(ErrorCode.BUDGET_EXHAUSTED ?? "BUDGET_EXHAUSTED", "Action already used this turn")];
+  }
+  return [];
+}
+
+/**
+ * Consume budget after a successful action.
+ * @param {object} state — mutated in place
+ * @param {DeclaredAction} action
+ */
+function consumeBudget(state, action) {
+  if (state.combat.mode !== "combat") return;
+  if (!state.combat.turnBudget) return;
+  if (action.type === "MOVE") state.combat.turnBudget.movementUsed += 1;
+  if (action.type === "ATTACK") state.combat.turnBudget.actionUsed += 1;
+}
+
 /**
  * Build a summary of a DeclaredAction for the rejection event payload.
  * Includes `type` and any identifying fields, but omits bulky data like paths.
@@ -217,8 +267,15 @@ export function applyAction(previousState, declaredAction) {
     return rejectAction(previousState, declaredAction, turnErrors);
   }
 
+  // 3c. Validate action budget — action-level failure, ACTION_REJECTED
+  const budgetErrors = validateActionBudget(previousState, declaredAction);
+  if (budgetErrors.length > 0) {
+    return rejectAction(previousState, declaredAction, budgetErrors);
+  }
+
   // 4. Clone state and apply mutation
   const clone = structuredClone(previousState);
+  ensureTurnBudget(clone);
   const eventsBefore = clone.log.events.length;
   let result;
 
@@ -247,6 +304,9 @@ export function applyAction(previousState, declaredAction) {
   if (!result.ok) {
     return rejectAction(previousState, declaredAction, result.errors);
   }
+
+  // 4a. Consume action budget on success
+  consumeBudget(clone, declaredAction);
 
   // 4b. Check if combat should end (after ATTACK kills last enemy, etc.)
   if (clone.combat.mode === "combat") {

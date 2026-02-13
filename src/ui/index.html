@@ -48,6 +48,33 @@
               </select>
             </div>
             <button id="btn-demo-encounter" class="btn-primary">⚔ Start Demo Encounter</button>
+
+            <details id="create-encounter-panel" class="create-encounter">
+              <summary class="btn-create-toggle">🛠 Create Custom Encounter</summary>
+              <div class="create-encounter-body">
+                <div class="create-row">
+                  <label for="map-select">🗺 Map:</label>
+                  <select id="map-select"></select>
+                </div>
+                <div class="create-row">
+                  <label>🧙 Party:</label>
+                  <div id="party-checkboxes" class="party-checks"></div>
+                </div>
+                <div class="create-row">
+                  <label for="builder-difficulty">⚙ Difficulty:</label>
+                  <select id="builder-difficulty">
+                    <option value="easy">Easy</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="hard">Hard</option>
+                    <option value="deadly">Deadly</option>
+                  </select>
+                </div>
+                <div id="builder-preview" class="builder-preview"></div>
+                <button id="btn-generate-play" class="btn-primary btn-generate">⚔ Generate & Play</button>
+                <div id="builder-feedback"></div>
+              </div>
+            </details>
+
             <div class="welcome-replay-row">
               <select id="replay-select"><option value="">— Load Replay —</option></select>
               <button id="btn-run-replay" disabled>▶ Run</button>

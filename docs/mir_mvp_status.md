@@ -1,6 +1,6 @@
 # MIR MVP Status
 
-> Last updated: 2026-02-12 · Sprint 1+2 complete · Tier 5.3 done · 995 tests passing
+> Last updated: 2026-02-12 · Sprint 1+2+3 complete · Tier 5+6 progressing · 1289 tests passing
 
 ---
 
@@ -8,7 +8,7 @@
 
 | Metric | Value |
 |--------|-------|
-| Total automated tests | 995 |
+| Total automated tests | 1289 |
 | Engine tests | 95 |
 | AI parser tests | 82 |
 | AI prompt tests | 50 |
@@ -25,10 +25,18 @@
 | Persistence tests | 14 |
 | Visibility tests | 18 |
 | Difficulty tests | 31 |
+| Event broadcast tests (S3.1–S3.6) | 128 |
+| Monster manual tests (Tier 6.3) | 32 |
+| Model adapter tests (Tier 5.5) | 27 |
+| Memory context tests (Tier 5.1) | 33 |
+| Multi-action turn tests (Tier 5.2) | 31 |
+| Encounter generator tests (Tier 5.4) | 26 |
+| Character creator tests (Tier 6.2) | 30 |
+| Scenario builder tests (Tier 6.4) | 21 |
 | Schema invariants | 25 |
 | Scenarios | 3 |
 | Replay bundles | 3 |
-| Engine modules | 21 |
+| Engine modules | 22 |
 | Zero-dependency modules | All engine + validation |
 
 ---
@@ -191,6 +199,108 @@
 - [x] UI difficulty dropdown in welcome panel
 - [x] Applied on scenario and demo encounter load
 
+### WebSocket Event Broadcast (S3.1)
+- [x] Room creation with configurable max players
+- [x] Client registry (connect, disconnect, list, stale detection)
+- [x] Message protocol (encode/decode JSON with seq + timestamp)
+- [x] Event fan-out to all clients (batch + single)
+- [x] Action authorization (GM/player/spectator roles)
+- [x] Welcome message + state sync for reconnection
+
+### Player Roles & Permissions (S3.2)
+- [x] ACTION_PERMISSIONS matrix (9 action types × 3 roles)
+- [x] `canPerformAction()` — role + action type check
+- [x] `validateActionPermission()` — role + action type + entity ownership
+- [x] `assignEntityToClient()` / `unassignEntity()` — entity ownership management
+- [x] `getEntityController()` — lookup who controls an entity
+
+### Session Join via Code (S3.3)
+- [x] `generateRoomCode()` — 6-char unambiguous codes (no I/O/0/1)
+- [x] Room registry with code index
+- [x] `joinRoomByCode()` — join via code with capacity check
+- [x] `findRoomByCode()` — case-insensitive lookup
+- [x] `listRooms()` / `registryRemoveRoom()`
+
+### Turn Notifications (S3.5)
+- [x] `prepareYourTurnNotification()` — targeted to controlling player only
+- [x] `prepareCombatEndNotification()` — broadcast with result + details
+- [x] `prepareRoundStartNotification()` — broadcast with initiative order
+- [x] New message types: SERVER_YOUR_TURN, SERVER_COMBAT_END, SERVER_ROUND_START
+
+### Monster Manual (Tier 6.3)
+- [x] 14 monster templates across 4 CR tiers (minion/standard/elite/boss)
+- [x] Query by CR, tag, name/description search
+- [x] `instantiateMonster()` + `instantiateGroup()` factory functions
+- [x] Stat overrides on instantiation
+
+### Model Adapter (Tier 5.5)
+- [x] Adapter registry (register/get/list/unregister/clear)
+- [x] Mock, OpenAI, and local LLM adapter factories
+- [x] Active adapter selection + `callActiveAdapter()`
+
+### AI Memory Context (Tier 5.1)
+- [x] Roster summary builder (HP, position, conditions)
+- [x] Recent events summary (11 event types)
+- [x] Combat state summary (round, active entity, initiative)
+- [x] Narrative beat extraction (kills, conditions, combat start/end)
+- [x] Map summary (terrain, fog status)
+- [x] `buildFullContext()` + `estimateTokens()`
+
+### Multi-Action Turn Planner (Tier 5.2)
+- [x] D&D-style action economy: movement + action + bonus action per turn
+- [x] Phase-based planning: ranged → move → melee → bonus
+- [x] Ranged ability usage at distance (fire before moving)
+- [x] Melee ability with difficulty-aware probability
+- [x] Bonus action healing (healing word on injured allies)
+- [x] Cooldown-aware ability selection
+- [x] `planMultiActionTurn()` — full NPC turn with action budget
+- [x] `summarizePlan()` / `isPlanWithinBudget()` — plan analysis
+
+### Character Creator (Tier 6.2)
+- [x] 5 class templates: Fighter, Rogue, Wizard, Cleric, Ranger
+- [x] Base stats, abilities, starting equipment per class
+- [x] 5 preset named characters (Seren, Miri, Thorin, Elara, Finn)
+- [x] `createCharacter()` — from class template with overrides
+- [x] `createFromPreset()` — from preset with extra overrides
+- [x] `createParty()` — batch party creation from preset IDs
+- [x] `validateCharacter()` — entity field validation
+- [x] Query: `listClasses()`, `filterClassesByTag()`, `listPresets()`
+
+### Scenario Builder (Tier 6.4)
+- [x] 4 map templates: Arena, Dungeon Corridor, Forest Clearing, Tavern
+- [x] Terrain definitions (walls, difficult terrain) per map
+- [x] Player spawn points and NPC spawn zones
+- [x] `buildScenario()` — combines party + encounter + map into ScenarioBundle
+- [x] `quickBuild()` — one-call scenario generation with minimal params
+- [x] Auto-generates encounters via encounter generator
+- [x] Terrain mapping with blocksMovement/blocksVision flags
+
+### Encounter Generator (Tier 5.4)
+- [x] XP-budgeted encounter creation from monster manual
+- [x] 4 group templates: swarm, balanced, elite_guard, boss_fight
+- [x] CR-weighted slot filling with budget tracking
+- [x] Auto-instantiation from monster catalogue
+- [x] Grid placement strategies: spread, clustered, flanking
+- [x] Player position avoidance (no overlap)
+- [x] Difficulty estimation from XP totals
+- [x] `generateEncounter()` — one-call balanced encounter creation
+
+### Per-Player Fog of War (S3.4)
+- [x] `getEventPosition()` — extract spatial position from any event type
+- [x] `isEventVisible()` — global vs spatial event classification
+- [x] `filterEventsForClient()` — GM/spectator bypass, entity vision filtering
+- [x] `prepareFogAwareBroadcast()` — per-client event filtering with injected visibility
+- [x] `redactStateForPlayer()` — NPC position redaction for hidden entities
+
+### Conflict Resolution (S3.6)
+- [x] `createActionQueue()` — FIFO action queue with sequence numbers
+- [x] `enqueueAction()` / `dequeueAction()` — ordered processing
+- [x] `resolveQueueEntry()` / `pruneQueue()` — lifecycle management
+- [x] `checkStaleAction()` — eventSeq-based staleness with configurable tolerance
+- [x] `validateTurnAuthority()` — server-authoritative turn enforcement
+- [x] `prepareOptimisticAck()` — immediate client acknowledgment
+- [x] `processIncomingAction()` — full pipeline: permissions → turn → staleness → enqueue
+
 ### DevOps
 - [x] Auto-kill stale port on server startup
 - [x] Graceful shutdown (SIGINT/SIGTERM)
@@ -203,9 +313,8 @@
 
 | Feature | Reason |
 |---------|--------|
-| Real-time multiplayer | Planned Sprint 3 |
-| Character creation | Focus is on engine, not content |
-| Map editor | Scenarios are hand-authored JSON |
+| Real-time multiplayer WebSocket server | Sprint 3 logic complete; server wiring pending |
+| Map editor | Scenarios are hand-authored JSON or built programmatically |
 | Authentication / accounts | Local-first design |
 | Art / animations | Engineering demo, not visual product |
 | Mobile support | Desktop browser only |

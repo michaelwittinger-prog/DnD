@@ -13,6 +13,7 @@ import { rollD20 } from "./rng.mjs";
 import { findNextLivingEntity } from "./combatEnd.mjs";
 import { processEndOfTurn, processStartOfTurn } from "./conditions.mjs";
 import { tickCooldowns } from "./abilities.mjs";
+import { defaultTurnBudget } from "./applyAction.mjs";
 
 /**
  * Roll initiative and transition to combat mode.
@@ -56,6 +57,7 @@ export function applyRollInitiative(state) {
   state.combat.round = 1;
   state.combat.initiativeOrder = rolls.map((r) => r.id);
   state.combat.activeEntityId = rolls[0].id;
+  state.combat.turnBudget = defaultTurnBudget();
 
   // Append log event
   const eventId = `evt-${(state.log.events.length + 1).toString().padStart(4, "0")}`;
@@ -111,6 +113,9 @@ export function applyEndTurn(state, action) {
     // Process condition expiry (durations count down)
     processEndOfTurn(state, action.entityId);
   }
+
+  // ── Reset action budget for next entity ───────────────────────────
+  state.combat.turnBudget = defaultTurnBudget();
 
   // ── Start-of-turn processing for next entity ─────────────────────
   // Process DoT effects (burning damage, etc.)

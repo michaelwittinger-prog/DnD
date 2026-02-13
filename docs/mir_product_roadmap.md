@@ -1,7 +1,7 @@
 # MIR Product Roadmap
 
 > Master plan for evolving MIR from MVP to full market product.
-> Last updated: 2026-02-11 · Commit: post-MIR 4.3
+> Last updated: 2026-02-12 · Session 18 · Tests: 1600
 
 ---
 
@@ -31,56 +31,106 @@ MIR is a deterministic, event-sourced game engine for hybrid analog-first tablet
 
 ---
 
-## 2. Current State Assessment
+## 2. Current State Assessment (Session 18 — 2026-02-12)
 
-### What's Built (MIR 0.1–4.3)
+### What's Built — Full Inventory
 
-| Area | Status | Key Metrics |
-|------|--------|-------------|
-| Core engine (MOVE, ATTACK, ROLL_INITIATIVE, END_TURN) | ✅ Complete | 95 engine tests |
-| DeclaredAction → EngineEvent → StateMutation pipeline | ✅ Complete | Deterministic, hash-verified |
-| Schema validation (JSON Schema 2020-12, pre-compiled) | ✅ Complete | 25 invariants |
-| AI proposal layer (mock + OpenAI bridge) | ✅ Complete | 82 parser + 50 prompt + 78 bridge tests |
-| Replay system (deterministic bundles with hash verification) | ✅ Complete | 40 replay tests |
-| Scenario system (3 loadable encounter bundles) | ✅ Complete | 53 scenario tests |
-| Browser UI (grid, tokens, action buttons, AI chat) | ✅ Complete | Canvas-based, single-page |
-| Single-command startup (`npm run start:mvp`) | ✅ Complete | UI + AI bridge |
-| **Total automated tests** | **441** | All passing |
+| Area | Status | Tests | Module(s) |
+|------|--------|-------|-----------|
+| **Core Engine** (MOVE, ATTACK, ROLL_INITIATIVE, END_TURN, USE_ABILITY, SET_SEED) | ✅ | 95 | `engine/applyAction`, `movement`, `attack`, `initiative` |
+| **Action→Event→State Pipeline** (deterministic, hash-verified) | ✅ | — | `engine/applyAction`, `replay/hash` |
+| **A* Pathfinding** (cardinal, diagonal, terrain cost, blocked cells) | ✅ | 40+ | `engine/pathfinding` |
+| **Death & Combat End** (HP→0 elimination, faction win detection) | ✅ | 30+ | `engine/combatEnd` |
+| **NPC Strategy** (chase-and-attack, auto-turn execution) | ✅ | 30+ | `engine/npcTurnStrategy`, `combatController` |
+| **Ability System** (Firebolt, Healing Word, Sneak Attack, Poison Strike, Shield Bash) | ✅ | 96 | `engine/abilities` |
+| **Condition System** (dead, stunned, poisoned, prone, blessed, burning + duration) | ✅ | — | `engine/conditions` |
+| **Fog of War** (Bresenham LOS, per-faction vision, terrain blocking) | ✅ | 18 | `engine/visibility` |
+| **Difficulty Presets** (Easy/Normal/Hard/Deadly — NPC stat/behavior scaling) | ✅ | 31 | `engine/difficulty` |
+| **Multi-Action Turn Planner** (D&D action economy: move + action + bonus) | ✅ | 31 | `engine/multiActionTurn` |
+| **Event Narration** (human-readable descriptions for all event types) | ✅ | — | `engine/narrateEvent` |
+| **Schema Validation** (JSON Schema 2020-12, pre-compiled, 25 invariants) | ✅ | 25 | `state/validation` |
+| **AI Prompt Builder** (OpenAI message format, state context) | ✅ | 50 | `ai/aiPromptTemplate` |
+| **AI Action Parser** (safety parser, schema validation) | ✅ | 82 | `ai/aiActionParser` |
+| **AI Bridge Server** (HTTP bridge to OpenAI, rate limiting) | ✅ | 78 | `server/aiBridge` |
+| **Intent System** (Parse→Plan→Execute pipeline, 11 intent types) | ✅ | 199 | `ai/intentTypes`, `mockIntentParser`, `intentPlanner`, `intentExecutor` |
+| **LLM Intent Parser** (organic language → intent via OpenAI adapter) | ✅ | 112 | `ai/llmIntentParser`, `intentPromptBuilder` |
+| **Model Adapter Registry** (mock, OpenAI, local LLM adapter pattern) | ✅ | 27 | `ai/modelAdapter` |
+| **AI Memory Context** (roster, events, combat, narrative, map summary) | ✅ | 33 | `ai/memoryContext` |
+| **Monster Manual** (14 templates, 4 CR tiers, query/instantiate) | ✅ | 32 | `content/monsterManual` |
+| **Character Creator** (5 classes, 5 presets, party builder) | ✅ | 30 | `content/characterCreator` |
+| **Scenario Builder** (4 map templates, party + encounter → scenario) | ✅ | 21 | `content/scenarioBuilder` |
+| **Encounter Generator** (XP-budgeted, group templates, grid placement) | ✅ | 26 | `content/encounterGenerator` |
+| **Replay System** (deterministic bundles, hash verification, runner) | ✅ | 40 | `replay/hash`, `replay/runReplay` |
+| **Scenario System** (3 loadable scenarios + custom builder) | ✅ | 53 | `scenarios/`, scenario JSON files |
+| **Persistence** (IndexedDB save/load, auto-save, import/export) | ✅ | 14 | `persistence/sessionStore`, `campaignStore` |
+| **WebSocket Broadcast** (rooms, roles, permissions, fog, conflict resolution) | ✅ | 128 | `net/eventBroadcast` |
+| **Browser UI** (grid, tokens, HP bars, click-to-move/attack, sounds, zoom, fog, initiative tracker, narration, difficulty, encounter builder, save/load) | ✅ | — | `ui/*` |
+| **Foundation** (structured logger, runtime assertions, barrel exports) | ✅ | — | `core/*` |
+| **Total automated tests** | **1600** | — | 28 test files |
 
-### What's Missing for a Convincing Product
+### Sprint Completion Status
 
-| Gap | Impact | Sprint |
-|-----|--------|--------|
-| No NPC auto-turns (combat is one-sided) | **Critical** — no opponent | S0 |
-| Mock AI is pattern-matching only | **Critical** — doesn't feel intelligent | S0 |
-| No narration (dry event log) | **High** — feels like a spreadsheet | S0 |
-| No death/unconscious mechanics | **High** — combat has no stakes | S0 |
-| No pathfinding (must type coordinates) | **High** — terrible UX | S0 |
-| No click-to-move / click-to-attack | **High** — keyboard-only flow | S0 |
-| No visual feedback (hit/miss/damage) | **Medium** — can't read combat at a glance | S0 |
-| No TypeScript (all .mjs, no type safety) | **High** — bug surface grows with codebase | S-1 |
-| No structured logging (console.log only) | **Medium** — can't trace bugs in production | S-1 |
-| No CI/CD pipeline | **Medium** — can ship broken code | S-1 |
-| No spell/ability system | **Medium** — combat is repetitive | S1 |
-| No fog of war | **Medium** — full visibility removes tension | S1 |
-| No persistence (session lost on refresh) | **Medium** — can't resume play | S2 |
-| No multiplayer | **Low for MVP** — solo play is primary | S3 |
+| Sprint | Status | Key Deliverables |
+|--------|--------|-----------------|
+| Sprint -1: Foundation | ✅ COMPLETE | Logger, assertions, barrel exports (TS migration deferred) |
+| Sprint 0: Playable Demo | ✅ COMPLETE | Pathfinding, click-to-move/attack, NPC auto-turns, narration, death, HP bars, auto-flow combat |
+| Sprint 1: Solid Game | ✅ COMPLETE | Abilities (5), conditions (6), difficult terrain, range validation, fog of war, zoom/pan, scenarios, sounds, initiative tracker, dice detail |
+| Sprint 2: Persistence | ✅ COMPLETE | Session save/load, campaign model, auto-save, character persistence, import/export |
+| Sprint 3: Multiplayer | ✅ COMPLETE | WebSocket broadcast, roles/permissions, join codes, per-player fog, turn notifications, conflict resolution |
 
-### Original Roadmap Reconciliation
+### Tier Completion Status
 
-| Original Phase | Original Status | Actual MIR Status | Notes |
-|----------------|-----------------|-------------------|-------|
-| 0.1 Environment | ✅ | ⚠ Diverged | No Next.js/Tailwind. Pure ESM + canvas. This is fine — lighter architecture. |
-| 0.2 AI Setup | ✅ | ✅ MIR 3.1–3.3 | Schema, OpenAI, temperature, prompt versioning all done. No streaming. |
-| 1.1 Core Design | ✅ | ✅ MIR 1.4 | State model, combat, initiative, RNG pipeline locked. |
-| 1.2 AI GM Logic | ✅ | ✅ MIR 3.1–3.3 | AI boundaries enforced. Memory persistence NOT built (stateless per-call). |
-| 1.3 Battlemap | ✅ | ✅ MIR 2.1 | Grid, coords, tokens, terrain. Visibility NOT built. |
-| 2.1 Backend Engine | ✅ | ✅ MIR 1.4 | Full state machine, turn cycle, combat, dice, event log. |
-| 2.2 AI Integration | ✅ | ✅ MIR 3.1–3.3 | JSON output, schema validation, reconciliation. Rollback implicit (immutability). |
-| 2.3 Battlemap MVP | ✅ | ⚠ Partial | Grid + tokens ✓. Drag-and-drop NOT built. Fog of war NOT built. |
-| 3 Analog Hybrid | ⚠ | ⚠ Minimal | Text input ✓. Speech NOT built. Dice recognition NOT built. |
-| 4 Advanced | ❌ | ❌ | Animations, sound, procedural gen, campaigns, save, multiplayer — all pending. |
-| 5 Polish | ⚠ | ⚠ Strong partial | 441 tests, determinism audit. No exploit testing, UX refinement, or perf measurement. |
+| Tier | Status | What's Built | What Remains |
+|------|--------|-------------|-------------|
+| **Tier 5: Advanced AI** | ✅ 5/5 | Memory context, multi-action turns, difficulty presets, encounter gen, model adapter | — |
+| **Tier 6: Content & Tools** | 🟡 3/7 | Character creator, monster manual, scenario builder | Map editor, rule modules, community sharing, procedural dungeons |
+| **Tier 7: NLP Pipeline** | ✅ 2/2 | Intent system (mock parser), LLM intent parser (organic language) | — |
+| Tier 8: Visual Polish | ⬜ 0/7 | — | Token sprites, terrain tiles, animations, themes |
+| Tier 9: Analog Hybrid | ⬜ 0/5 | — | Voice input, TTS, dice camera, GM screen |
+| Tier 10: World Interaction | ⬜ 0/9 | — | SEARCH, INTERACT, TALK_TO, INSPECT, REST, ASK_GM, DECLARE, EMOTE, STRATEGY intents |
+
+### Current Architecture — What's Wired vs What's Built
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        BROWSER UI                                │
+│  Text Input ──→ onAiPropose() ──→ executeIntent() ──→ render()  │
+│  Canvas Click ──→ dispatch(MOVE/ATTACK) ──→ render()             │
+│  Buttons ──→ dispatch(ROLL_INITIATIVE/END_TURN) ──→ render()     │
+└───────────────────────┬─────────────────────────────────────────┘
+                        │
+              ┌─────────▼─────────┐
+              │   Intent System    │  ← PRIMARY (always used)
+              │  Parse → Plan →    │
+              │  Execute → State   │
+              │  (mock parser)     │
+              └─────────┬─────────┘
+                        │
+        ┌───────────────┼───────────────┐
+        ▼               ▼               ▼
+  ┌──────────┐   ┌──────────┐   ┌──────────┐
+  │ applyAction│  │pathfinding│  │ conditions│
+  │ (engine)  │  │   (A*)   │  │ abilities │
+  └──────────┘   └──────────┘   └──────────┘
+
+  BUILT BUT NOT YET WIRED INTO UI:
+  ├── LLM Parser (parseLLMIntent) — needs adapter toggle in UI
+  ├── Multi-Action Turns — NPCs still use simpler strategy
+  ├── Memory Context — not feeding into prompts yet
+  └── WebSocket Broadcast — no live server instance
+```
+
+### Next Priority: Integration Wiring
+
+The biggest gap is NOT missing features — it's **connecting built systems to the live UI**:
+
+| Priority | What | Impact | Effort |
+|----------|------|--------|--------|
+| **P1** | Wire LLM parser as selectable mode in UI | Narrative language works | Low |
+| **P2** | Wire multi-action turns into NPC combat controller | Smarter NPCs | Medium |
+| **P3** | Content UI (encounter generator, character creator buttons) | Use Tier 5/6 systems | Medium |
+| **P4** | Wire memory context into LLM prompts | Better AI understanding | Low |
+| **P5** | Live WebSocket server for multiplayer | Sprint 3 goes live | High |
 
 ---
 
@@ -232,49 +282,75 @@ Assertions throw with module + function + what failed. In production: error repo
 
 Beyond Sprint 3, features are organized into tiers rather than sprints — work can be parallelized.
 
-### Tier 5: Advanced AI
+### Tier 5: Advanced AI ✅ COMPLETE
+
+| ID | Feature | Status |
+|----|---------|--------|
+| 5.1 | AI memory (summarized context: last N events + entity roster + narrative beats) | ✅ `ai/memoryContext` |
+| 5.2 | Multi-action turns (AI proposes move + attack + bonus action in one call) | ✅ `engine/multiActionTurn` |
+| 5.3 | AI difficulty presets (easy/normal/hard controlling NPC aggression) | ✅ `engine/difficulty` |
+| 5.4 | Encounter generation (AI creates balanced encounters from party data) | ✅ `content/encounterGenerator` |
+| 5.5 | Model selection (GPT-4o, Claude, local LLM via adapter pattern) | ✅ `ai/modelAdapter` |
+
+### Tier 6: Content & Tools (3/7)
+
+| ID | Feature | Status |
+|----|---------|--------|
+| 6.1 | Map editor (visual grid editor: paint terrain, place objects) | ⬜ |
+| 6.2 | Character creator (stats, abilities, equipment from templates) | ✅ `content/characterCreator` |
+| 6.3 | Monster manual (pre-built NPC stat blocks) | ✅ `content/monsterManual` |
+| 6.4 | Scenario editor (combine map + entities + AI instructions) | ✅ `content/scenarioBuilder` |
+| 6.5 | Rule module system (pluggable rule sets: D&D 5e, PF2e, homebrew) | ⬜ |
+| 6.6 | Community sharing (upload/download scenarios, maps, characters) | ⬜ |
+| 6.7 | Procedural dungeon generator | ⬜ |
+
+### Tier 7: NLP Pipeline ✅ COMPLETE (was "Visual Polish")
+
+> **Note:** Tier 7 was repurposed. The original "Visual Polish" items moved to Tier 8.
+
+| ID | Feature | Status |
+|----|---------|--------|
+| 7.1 | Intent system — 11 intent types, mock parser, planner, executor | ✅ `ai/intent*` |
+| 7.2 | LLM intent parser — organic language comprehension via OpenAI adapter | ✅ `ai/llmIntentParser`, `intentPromptBuilder` |
+
+### Tier 8: Visual Polish
 
 | ID | Feature | Priority |
 |----|---------|----------|
-| 5.1 | AI memory (summarized context: last N events + entity roster + narrative beats) | High |
-| 5.2 | Multi-action turns (AI proposes move + attack + bonus action in one call) | Medium |
-| 5.3 | AI difficulty presets (easy/normal/hard controlling NPC aggression) | Medium |
-| 5.4 | Encounter generation (AI creates balanced encounters from party data) | Low |
-| 5.5 | Model selection (GPT-4o, Claude, local LLM via adapter pattern) | Medium |
+| 8.1 | Token sprites (character art replacing circles) | Medium |
+| 8.2 | Terrain tiles (stone, wood, grass, water) | Medium |
+| 8.3 | Move animation (smooth slide) | Medium |
+| 8.4 | Attack animation (shake, flash) | Low |
+| 8.5 | Particle effects (spell impacts) | Low |
+| 8.6 | Dark/light theme | Low |
+| 8.7 | Minimap | Low |
 
-### Tier 6: Content & Tools
-
-| ID | Feature | Priority |
-|----|---------|----------|
-| 6.1 | Map editor (visual grid editor: paint terrain, place objects) | High |
-| 6.2 | Character creator (stats, abilities, equipment from templates) | High |
-| 6.3 | Monster manual (pre-built NPC stat blocks) | Medium |
-| 6.4 | Scenario editor (combine map + entities + AI instructions) | Medium |
-| 6.5 | Rule module system (pluggable rule sets: D&D 5e, PF2e, homebrew) | High |
-| 6.6 | Community sharing (upload/download scenarios, maps, characters) | Low |
-| 6.7 | Procedural dungeon generator | Low |
-
-### Tier 7: Visual Polish
+### Tier 9: Analog Hybrid Bridge
 
 | ID | Feature | Priority |
 |----|---------|----------|
-| 7.1 | Token sprites (character art replacing circles) | Medium |
-| 7.2 | Terrain tiles (stone, wood, grass, water) | Medium |
-| 7.3 | Move animation (smooth slide) | Medium |
-| 7.4 | Attack animation (shake, flash) | Low |
-| 7.5 | Particle effects (spell impacts) | Low |
-| 7.6 | Dark/light theme | Low |
-| 7.7 | Minimap | Low |
+| 9.1 | Voice-to-text input (browser Speech API or Whisper) | High |
+| 9.2 | Text-to-speech narration (browser TTS for AI output) | Medium |
+| 9.3 | Dice camera recognition (phone camera → OCR physical dice) | Low |
+| 9.4 | GM screen mode (second-screen UI for table) | Medium |
+| 9.5 | Quick NPC override (GM adjusts HP/position mid-combat) | Medium |
 
-### Tier 8: Analog Hybrid Bridge
+### Tier 10: World Interaction (Future)
 
-| ID | Feature | Priority |
-|----|---------|----------|
-| 8.1 | Voice-to-text input (browser Speech API or Whisper) | High |
-| 8.2 | Text-to-speech narration (browser TTS for AI output) | Medium |
-| 8.3 | Dice camera recognition (phone camera → OCR physical dice) | Low |
-| 8.4 | GM screen mode (second-screen UI for table) | Medium |
-| 8.5 | Quick NPC override (GM adjusts HP/position mid-combat) | Medium |
+> Extends the intent schema beyond combat into exploration, roleplay, and world manipulation.
+> Requires: skill check system, object interaction model, NPC dialogue, LLM narration.
+
+| ID | Feature | Engine Dependency | Priority |
+|----|---------|------------------|----------|
+| 10.1 | ASK_GM intent (player asks questions, LLM answers from state) | None (LLM narration only) | Low |
+| 10.2 | INSPECT intent (examine objects/entities, reveal information) | Vision system (built) | Low |
+| 10.3 | REST intent (short/long rest, HP recovery, cooldown reset) | Simple engine rules | Low |
+| 10.4 | EMOTE/DECLARE intents (narrative RP, no mechanical effect) | None (logged + narrated) | Low |
+| 10.5 | SEARCH intent (search room/body for traps/loot) | Skill check system | Medium |
+| 10.6 | INTERACT intent (open chest, pull lever, light torch) | Object interaction model | Medium |
+| 10.7 | TALK_TO intent (NPC dialogue, persuasion, intimidation) | NPC dialogue + skill checks | High |
+| 10.8 | STRATEGY intent (AI suggests tactical positions) | AI analysis | Medium |
+| 10.9 | Skill check system (generic d20+modifier for all checks) | New engine action type | Medium |
 
 ---
 
@@ -478,14 +554,32 @@ fixtures/
 
 ## Execution Summary
 
+### Completed (Sessions 1–17, Feb 9–12 2026)
+
 ```
-IMMEDIATE: Sprint -1 (3 days) — TypeScript, logger, CI, module boundaries
-WEEK 1:   Sprint 0 (7 days)  — Playable demo: real AI, NPC turns, click-to-play
-WEEK 2-3: Sprint 1 (7 days)  — Spells, conditions, fog of war, polish
-WEEK 3-4: Sprint 2 (5 days)  — Save/load, campaigns
-WEEK 4-6: Sprint 3 (8 days)  — Multiplayer
-WEEK 6+:  Tiers 5–8          — Advanced AI, content tools, visual polish, analog bridge
+✅ Sprint -1  — Foundation (logger, assertions, barrel exports)
+✅ Sprint 0   — Playable demo (pathfinding, click-to-play, NPC turns, narration, death, HP bars)
+✅ Sprint 1   — Solid game (abilities, conditions, terrain, fog, zoom, sounds, scenarios, dice detail)
+✅ Sprint 2   — Persistence (save/load, campaigns, auto-save, import/export)
+✅ Sprint 3   — Multiplayer (WebSocket, roles, join codes, fog, turn notifications, conflict resolution)
+✅ Tier 5     — Advanced AI (memory context, multi-action turns, difficulty, encounters, model adapter)
+✅ Tier 6     — Content (3/7: character creator, monster manual, scenario builder)
+✅ Tier 7     — NLP Pipeline (intent system, LLM intent parser)
+   Total:       1600 automated tests, 28 test files, 17 sessions
+```
+
+### Next Priorities (Integration Wiring)
+
+```
+NEXT:     P1 — Wire LLM parser into UI (selectable mock/LLM mode)
+THEN:     P2 — Wire multi-action turns into NPC combat controller
+THEN:     P3 — Content UI (encounter generator, character creator buttons)
+THEN:     P4 — Wire memory context into LLM prompts
+LATER:    Tier 6 remaining — Map editor, rule modules, procedural dungeons
+LATER:    Tier 8  — Visual polish (sprites, terrain tiles, animations)
+LATER:    Tier 9  — Analog hybrid (voice input, TTS, dice camera)
+FUTURE:   Tier 10 — World interaction (SEARCH, INTERACT, TALK_TO, REST, etc.)
 ONGOING:  Testing, accessibility, legal, monetization design
 ```
 
-**Priority order: Framework → Demo → Mechanics → Persistence → Multiplayer → Content → Market.**
+**Current priority: Integration → Polish → Content → Market.**

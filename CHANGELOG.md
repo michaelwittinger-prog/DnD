@@ -5,25 +5,186 @@
 
 ---
 
-## 2026-02-12 — Session 11: Sprint 3 + Tier 5/6 Groundwork (WIP)
+## 2026-02-12 — Session 18: Roadmap Refresh + UI Intent Wiring
 
-**Commit:** `793f6a8` | **Tests:** 995 + 34 new (broadcast) | **Status:** IN PROGRESS
+**Commit:** pending | **Tests:** 1600 | **Status:** Integration Phase
 
-### Built (complete)
+### Roadmap Overhaul
+- **`docs/mir_product_roadmap.md`** — Complete rewrite of Section 2 (Current State Assessment) with full inventory of 30+ built systems, sprint completion status (all 5 sprints ✅), tier completion matrix. Added architecture diagram showing wired vs unwired systems.
+- **Tier renumbering** — Tier 7 repurposed from "Visual Polish" to "NLP Pipeline" (✅ complete). Original visual polish → Tier 8. Added Tier 9 (Analog Hybrid) and **Tier 10: World Interaction** (SEARCH, INTERACT, TALK_TO, INSPECT, REST, ASK_GM, DECLARE, EMOTE, STRATEGY).
+- **Integration Priority List** — P1–P5 prioritization for connecting built systems to live UI. Phase 2 world intents deferred to Tier 10 (needs skill check system, object model, NPC dialogue).
+- **Execution Summary** — Updated from planned sprints to completed sprints + next priorities.
+
+### UI Wiring Cleanup
+- **Intent system is now the PRIMARY path** — Removed legacy bridge-first logic from `main.mjs`. Previously: text input → try HTTP bridge (1.5s timeout) → fallback to intent system. Now: text input → intent system directly. No wasted network probe.
+- **Removed bridge probe IIFE** — Eliminated startup probe that tried to reach `localhost:3002` and always failed (no bridge server running). Replaced with simple indicator assignment.
+- **AI mode indicator** — Set to `"🤖 intent"` immediately on load (no async probe delay).
+- **Architecture is now clean:**
+  ```
+  BEFORE: text → try bridge (1.5s timeout) → fallback to executeIntent()
+  AFTER:  text → executeIntent() directly → done
+  ```
+- Bridge concept preserved in Sprint 3 multiplayer code (`net/eventBroadcast.mjs`) for future server deployment.
+
+### What this enables
+- Text input in the browser now goes through the full Parse → Plan → Execute pipeline with zero network delay
+- AI mode indicator shows "intent" immediately (no flicker from failed probe)
+- ~50 lines of dead code removed from main.mjs
+- Clean separation: local play uses intent system, multiplayer will use WebSocket broadcast
+
+---
+
+## 2026-02-12 — Session 17: Tier 7.2 (LLM Intent Parser — Organic Language Comprehension)
+
+**Commit:** pending | **Tests:** 1600 | **Status:** Tier 7 deepening
+
+### Built
+- **Tier 7.2: LLM Intent Parser** — Bridges OpenAI models into the intent pipeline:
+  - `src/ai/intentPromptBuilder.mjs` — State summarizer (strips RNG/internals, concise entity list), system prompt teaching LLM all 11 intent types + tactical selectors + compound commands, user prompt builder with game state context
+  - `src/ai/llmIntentParser.mjs` — `parseLLMIntent(text, state, adapter)`: calls LLM via model adapter, extracts JSON from any response format (raw object, string, markdown-fenced, nested .intent/.actions/.text/.content), validates against `validateIntent()`, automatic mock fallback on any failure (network, parse, validation)
+  - `extractIntent()` — Robust multi-format response extractor (handles LLM quirks: markdown fences, extra text, nested wrappers)
+- **UI Contract Fix** — `intentExecutor.mjs` now returns `.state`/`.events`/`.actions`/`.actionsExecuted` aliases alongside canonical names (both success and failure paths). Prevents UI crash from property name mismatch.
+- **UI Contract Test** — Section 6 in `intent_system_test.mjs`: 30 assertions verify executeIntent() always returns all 9 UI-required keys
+
+### Architecture — "The LLM understands; the engine decides."
+```
+Player Input → LLM (classify) → PlayerIntent JSON → Planner → DeclaredActions → Engine
+                ↓ (on failure)
+           Mock Parser (fallback)
+```
+- LLM output MUST pass `validateIntent()` — same schema as mock parser
+- Planner + Executor unchanged — LLM is a drop-in parser replacement
+- Fallback to mock parser on any failure: no adapter, API error, timeout, unparseable response, invalid intent
+- LLM never sees RNG seeds or engine internals (sanitized state summary)
+- Temperature 0.1 for classification (deterministic), max 200 tokens (intents are small JSON)
+
+### Narrative Language Now Possible
+The mock parser handles "attack the goblin" but fails on narrative input. With the LLM parser:
+- *"I cautiously approach the dark figure"* → `{ type: "approach", target: "barkeep" }`
+- *"I ready my blade and charge the nearest foe"* → `{ type: "attack", target: "nearest_hostile" }`
+- *"Miri, fall back! Get behind Seren!"* → `{ type: "compound", steps: [flee, approach] }`
+- *"I whisper a healing prayer over my wounded companion"* → `{ type: "use_ability", ability: "healing_word", target: "most_injured_ally" }`
+- *"That's enough talking. Let steel do the rest."* → `{ type: "start_combat" }`
+
+### Test delta: +142 (1458 → 1600)
+- `tests/llm_intent_parser_test.mjs` — 112 tests (NEW): prompt builder (22), response extraction (17), LLM success (17), fallback (14), output contract (15), narrative language classification (12), + 5 edge cases
+- `tests/intent_system_test.mjs` — 199 tests (+30 UI contract tests in Section 6)
+
+---
+
+## 2026-02-12 — Session 16: Tier 7.1 (Intent System — Natural Language → Engine Actions)
+
+**Commit:** pending | **Tests:** 1458 | **Status:** Tier 7 started
+
+### Built
+- **Tier 7.1: Intent System** — Complete 3-stage NLP-to-action pipeline:
+  - `src/ai/intentTypes.mjs` — 11 PlayerIntent types (MOVE_TO, ATTACK, USE_ABILITY, FLEE, DEFEND, COMPOUND, etc.), direction/target constants, tactical selectors (nearest_hostile, weakest_hostile, most_injured_ally), intent validation
+  - `src/ai/mockIntentParser.mjs` — Keyword-based parser: conjugated verbs, tactical target phrases, ability patterns (firebolt, healing_word, sneak_attack, shield_bash), compound commands ("move then attack"), subject extraction ("Seren attacks the goblin"), coordinate/direction parsing
+  - `src/ai/intentPlanner.mjs` — Converts intents → ordered DeclaredActions using pathfinding (A*), fuzzy entity resolution, ability catalogue lookup, tactical selectors, movement-speed trimming, auto-approach before attack/ability
+  - `src/ai/intentExecutor.mjs` — Feeds planned actions through applyAction() sequentially, accumulates events/narration, graceful partial-success on compound commands, timing metadata
+- Updated `src/ai/index.mjs` — barrel exports for full intent pipeline + legacy AI client
+
+### Test delta: +169 (1289 → 1458)
+- `tests/intent_system_test.mjs` — 169 tests (NEW): intent types & validation (13), mock parser (63), intent planner (28), executor (55), edge cases (10)
+
+### Architecture
+- **Parse → Plan → Execute**: Free-form text → PlayerIntent → ActionPlan → engine-validated state transitions
+- Planner never mutates state; engine validates everything; partial execution supported
+- Mock parser handles ~80% of common phrases without LLM; can be swapped for OpenAI intent parser later
+
+---
+
+## 2026-02-12 — Session 15: Tier 6.2 + 6.4 (Character Creator + Scenario Builder)
+
+**Commit:** pending | **Tests:** 1289 | **Status:** Tier 6 progressing
+
+### Built
+- **Tier 6.2: Character Creator** (`src/content/characterCreator.mjs`) — 5 class templates (Fighter, Rogue, Wizard, Cleric, Ranger) with base stats, abilities, starting equipment. 5 preset named characters (Seren, Miri, Thorin, Elara, Finn). Factory functions: `createCharacter()`, `createFromPreset()`, `createParty()`. Character validation. Query by class, tag, preset.
+- **Tier 6.4: Scenario Builder** (`src/content/scenarioBuilder.mjs`) — 4 map templates (Arena, Dungeon Corridor, Forest Clearing, Tavern) with terrain, player spawns, NPC spawn zones. `buildScenario()` combines party + encounter + map into complete ScenarioBundle. `quickBuild()` for one-call generation. Terrain mapping (walls block movement/vision, difficult terrain).
+
+### Test delta: +51 (1238 → 1289)
+- `tests/character_creator_test.mjs` — 30 tests (NEW): class constants, templates, presets, queries, createCharacter, createFromPreset, createParty, validateCharacter
+- `tests/scenario_builder_test.mjs` — 21 tests (NEW): map templates, queries, buildScenario (structure, spawns, overlap, terrain, errors, difficulties, all maps), quickBuild
+
+### Tier 6 Status: 3/7
+- 6.2 Character Creator ✅ | 6.3 Monster Manual ✅ | 6.4 Scenario Builder ✅
+- 6.1 Map Editor ⬜ | 6.5 Rule Modules ⬜ | 6.6 Community Sharing ⬜ | 6.7 Procedural Dungeon ⬜
+
+---
+
+## 2026-02-12 — Session 14: Tier 5.2 + 5.4 (Multi-Action Turns + Encounter Generation)
+
+**Commit:** pending | **Tests:** 1238 | **Status:** Tier 5 nearing completion
+
+### Built
+- **Tier 5.2: Multi-Action Turn Planner** (`src/engine/multiActionTurn.mjs`) — D&D-style action economy for NPC turns: movement + action + bonus action per turn. Phase-based planning: ranged abilities at distance → move toward hostile → melee attack/ability when adjacent → bonus action (healing word on injured ally). Difficulty-aware ability usage probability. Budget tracking and validation.
+- **Tier 5.4: Encounter Generator** (`src/content/encounterGenerator.mjs`) — XP-budgeted encounter creation from monster manual. CR-weighted group templates (swarm, balanced, elite_guard, boss_fight). Auto-instantiation from catalogue with tactical grid placement (spread, clustered, flanking). Difficulty estimation from XP totals.
+- **Engine barrel export** — `multiActionTurn.mjs` functions added to `engine/index.mjs`
+
+### Exported API
+- `planMultiActionTurn(state, entityId, options)` — full action-economy NPC planning
+- `summarizePlan(plan)` / `isPlanWithinBudget(plan)` — plan analysis
+- `calculateXpBudget()` / `selectGroupTemplate()` / `fillEncounterSlots()` — encounter building blocks
+- `generateEncounter(params)` — one-call encounter generation with placement
+- `estimateDifficulty(totalXp, partySize)` — encounter difficulty labeling
+
+### Test delta: +57 (1181 → 1238)
+- `tests/multi_action_turn_test.mjs` — 31 tests (NEW): action budget, ability slots, basic/movement/ranged/bonus/melee planning, summarize, budget validation
+- `tests/encounter_generator_test.mjs` — 26 tests (NEW): CR/XP tables, templates, budget calc, group template selection, slot filling, entity placement, full generation, difficulty estimation
+
+### Tier 5 Status: 4/5 COMPLETE
+- 5.1 AI Memory Context ✅ | 5.2 Multi-Action Turns ✅ | 5.3 Difficulty Presets ✅
+- 5.4 Encounter Generation ✅ | 5.5 Model Adapter ✅
+
+---
+
+## 2026-02-12 — Session 13: Sprint 3 Complete (S3.4 + S3.6)
+
+**Commit:** pending | **Tests:** 1181 | **Status:** Sprint 3 COMPLETE ✅
+
+### Built
+- **S3.4 Per-Player Fog of War** — `getEventPosition()`, `isEventVisible()` (global/spatial event classification), `filterEventsForClient()` (GM/spectator bypass, entity vision check), `prepareFogAwareBroadcast()` (per-client event filtering with injected visibility function), `redactStateForPlayer()` (NPC position redaction for hidden entities)
+- **S3.6 Conflict Resolution** — `createActionQueue()`, `enqueueAction()`/`dequeueAction()` (FIFO with sequence numbers), `resolveQueueEntry()`, `getQueueDepth()`, `pruneQueue()`, `checkStaleAction()` (eventSeq-based staleness with tolerance), `validateTurnAuthority()` (server-authoritative turn enforcement), `prepareOptimisticAck()`, `processIncomingAction()` (full pipeline: permissions → turn authority → staleness → enqueue)
+
+### Test delta: +47 (1134 → 1181)
+- `tests/event_broadcast_test.mjs` — 128 tests (+47 for S3.4/S3.6)
+
+### Sprint 3 Status: 6/6 COMPLETE ✅
+- S3.1 WebSocket broadcast ✅ | S3.2 Roles & permissions ✅ | S3.3 Join codes ✅
+- S3.4 Per-player fog ✅ | S3.5 Turn notifications ✅ | S3.6 Conflict resolution ✅
+
+---
+
+## 2026-02-12 — Session 12: Tests + Sprint 3.2/3.3/3.5
+
+**Commit:** pending | **Tests:** 1134 | **Status:** Sprint 3 in progress
+
+### Built
+- **Tier 6.3 Monster Manual Tests** (`tests/monster_manual_test.mjs`) — 32 tests: CR constants, catalogue integrity, getMonster, listMonsters, filterByCR, filterByTag, searchMonsters, instantiateMonster, instantiateGroup
+- **Tier 5.5 Model Adapter Tests** (`tests/model_adapter_test.mjs`) — 27 tests: register/get/list/unregister/clear adapters, mock/OpenAI/local adapter factories, active adapter selection
+- **Tier 5.1 AI Memory Context Tests** (`tests/memory_context_test.mjs`) — 33 tests: roster summary, recent events, event summarization (11 event types), combat summary, narrative beats, map summary, full context, token estimation
+- **S3.2 Player Roles & Permissions** — `ACTION_PERMISSIONS` matrix (9 action types × 3 roles), `canPerformAction()`, `validateActionPermission()` (role + action type + entity ownership), `assignEntityToClient()`, `unassignEntity()`, `getEntityController()`
+- **S3.3 Session Join via Code** — `generateRoomCode()` (6-char unambiguous), `createRoomRegistry()`, `registryCreateRoom()` (auto-assigns code), `findRoomByCode()` (case-insensitive), `listRooms()`, `registryRemoveRoom()`, `joinRoomByCode()`
+- **S3.5 Turn Notifications** — `prepareYourTurnNotification()` (targeted to controlling player), `prepareCombatEndNotification()` (broadcast), `prepareRoundStartNotification()` (broadcast with initiative order). New MessageTypes: `SERVER_YOUR_TURN`, `SERVER_COMBAT_END`, `SERVER_ROUND_START`
+
+### Test delta: +139 (995 → 1134)
+- `tests/monster_manual_test.mjs` — 32 tests (NEW)
+- `tests/model_adapter_test.mjs` — 27 tests (NEW)
+- `tests/memory_context_test.mjs` — 33 tests (NEW)
+- `tests/event_broadcast_test.mjs` — 81 tests (+47 for S3.2/S3.3/S3.5)
+
+---
+
+## 2026-02-12 — Session 11: Sprint 3 + Tier 5/6 Groundwork
+
+**Commit:** `793f6a8` | **Tests:** 995 + 34 new (broadcast)
+
+### Built
 - **Game Handbook** (`docs/mir_game_handbook.md`) — Full player reference: rules, abilities, conditions, difficulty, scenarios, controls
 - **S3.1 WebSocket Event Broadcast** (`src/net/eventBroadcast.mjs`) — Room management, client registry, message protocol (encode/decode), event fan-out, action authorization (GM/player/spectator), state sync, turn notifications. **34/34 tests passing.**
-
-### Built (modules done, tests pending)
-- **Tier 6.3 Monster Manual** (`src/content/monsterManual.mjs`) — 15 monster templates across 4 CR tiers (minion/standard/elite/boss). Query by CR, tag, name search. `instantiateMonster()` and `instantiateGroup()` factory functions.
+- **Tier 6.3 Monster Manual** (`src/content/monsterManual.mjs`) — 14 monster templates across 4 CR tiers (minion/standard/elite/boss). Query by CR, tag, name search. `instantiateMonster()` and `instantiateGroup()` factory functions.
 - **Tier 5.5 Model Adapter** (`src/ai/modelAdapter.mjs`) — Adapter registry pattern for multiple AI providers. Mock, OpenAI, and local LLM adapter factories. Active adapter selection + `callActiveAdapter()`.
 - **Tier 5.1 AI Memory Context** (`src/ai/memoryContext.mjs`) — Context builder: roster summary, recent events, combat state, narrative beats, map summary. `buildFullContext()` + `estimateTokens()`.
-
-### ⚠ RESUME HERE NEXT SESSION
-1. Write tests: `tests/monster_manual_test.mjs`, `tests/model_adapter_test.mjs`, `tests/memory_context_test.mjs`
-2. Add all new test files to `package.json` `test:all` script
-3. Run full regression (should be ~1100+ tests)
-4. Update CHANGELOG, mir_mvp_status, PROJECT_CONTEXT with final counts
-5. Continue with remaining Sprint 3 items (S3.2–S3.6)
 
 ---
 
