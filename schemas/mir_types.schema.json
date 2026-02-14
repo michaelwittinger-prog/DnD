@@ -150,6 +150,22 @@
               "type": "integer",
               "minimum": 0,
               "description": "Movement in cells per turn."
+            },
+            "attackBonus": {
+              "type": "integer",
+              "description": "Bonus to attack rolls. Optional."
+            },
+            "damageDice": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 1 },
+              "minItems": 2,
+              "maxItems": 2,
+              "description": "Damage dice as [count, sides], e.g. [1, 8] for 1d8."
+            },
+            "attackRange": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Attack range in cells. 1 = melee."
             }
           }
         },
@@ -157,6 +173,16 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "description": "Free-form condition strings. Each must be non-empty."
+        },
+        "abilities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "description": "List of ability IDs this entity can use (e.g. 'firebolt', 'healing_word')."
+        },
+        "abilityCooldowns": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "Tracks remaining cooldown turns for abilities. Keys are ability IDs."
         },
         "conditionDurations": {
           "type": "object",

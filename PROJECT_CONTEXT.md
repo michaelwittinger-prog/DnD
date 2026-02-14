@@ -50,6 +50,25 @@ It operates strictly on explicit state and machine readable contracts.
 > **⚠️ CRITICAL: Two-Universe Consolidation (Session 20, 2026-02-14)**
 > See `docs/implementation_report.md` for the full diagnosis and decision log.
 
+### Canonical Schema Declaration (Session 20.5, 2026-02-14)
+
+**Enforced by: `tests/canonical_schema_test.mjs` (17 tests)**
+
+| Concern | Canonical Path | NOT Canonical |
+|---------|---------------|---------------|
+| Schema  | `schemas/mir_gamestate.schema.json` | `game_state.schema.json` (pipeline) |
+| Types   | `schemas/mir_types.schema.json` | `shared/schemas/gameState.schema.json` |
+| Validator | `src/state/validation/` (compiled, zero-dep) | `src/state/validateGameState.mjs` (pipeline) |
+| Examples | `src/state/exampleStates.mjs` | `game_state.example.json` (pipeline) |
+| Engine  | `src/engine/applyAction.mjs` | `gatekeeper.js` (pipeline CJS) |
+| State persistence | `out/engine_state.canonical.json` | `cUsersmichaDnDreplays_temp_state.json` |
+
+**Key shape differences (canonical vs pipeline):**
+- `entities`: categorized `{ players[], npcs[], objects[] }` — NOT flat array
+- `combat.mode`: string `"exploration"|"combat"` — NOT boolean `active`
+- `map.grid.size`: `{ width, height }` — NOT `map.dimensions`
+- `log.events[]` — NOT `logs[]`
+
 ### Canonical Architecture (Post-Consolidation)
 
 **Engine state (`src/engine/`) is the single source of truth.**
