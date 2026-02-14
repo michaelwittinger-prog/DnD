@@ -459,7 +459,7 @@ const aiDebugEl = document.getElementById("ai-debug");
 // LLM:  OpenAI API call → structured intent JSON (async, needs API key)
 // LLM automatically falls back to mock on any failure.
 
-let currentAiMode = "mock";    // "mock" or "llm"
+let currentAiMode = "llm";    // "mock" or "llm"
 let llmAdapter = null;         // browser OpenAI adapter instance
 
 /**
