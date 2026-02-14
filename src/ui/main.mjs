@@ -337,14 +337,32 @@ async function scheduleNpcTurn() {
   // Small delay so player can see it's NPC's turn
   await sleep(NPC_TURN_DELAY);
 
+  let safetyCounter = 0;
+  const MAX_NPC_LOOPS = 20; // prevent infinite loops
+
   while (gameState.combat.mode === "combat" && isNpcTurn(gameState)) {
+    safetyCounter++;
+    if (safetyCounter > MAX_NPC_LOOPS) {
+      console.error("[NPC] Safety limit reached — breaking NPC turn loop");
+      addNarration("⚠ NPC turn loop safety limit reached", "error");
+      break;
+    }
+
     const activeId = gameState.combat.activeEntityId;
     if (!activeId) break;
+
+    const prevActiveId = activeId; // track to detect stuck state
 
     const npc = findEntity(activeId);
     addNarration(`⚔ ${npc?.name || activeId}'s turn...`, "npc");
 
     const result = executeNpcTurn(gameState, activeId);
+
+    // Show errors if NPC turn failed
+    if (!result.success) {
+      console.warn(`[NPC] ${npc?.name || activeId} turn failed:`, result.errors);
+      addNarration(`⚠ ${npc?.name || activeId} turn failed: ${result.errors?.[0] || "unknown error"}`, "error");
+    }
 
     // Show each event with delay
     for (const evt of result.events) {
@@ -354,6 +372,21 @@ async function scheduleNpcTurn() {
 
     gameState = result.state;
     render();
+
+    // Detect stuck state: if activeEntity didn't change, force END_TURN
+    if (gameState.combat.mode === "combat" && gameState.combat.activeEntityId === prevActiveId) {
+      console.warn(`[NPC] Turn stuck on ${prevActiveId} — forcing END_TURN`);
+      addNarration(`⚠ Forcing end of ${npc?.name || prevActiveId}'s turn`, "error");
+      const forceResult = applyAction(gameState, { type: "END_TURN", entityId: prevActiveId });
+      if (forceResult.success) {
+        gameState = forceResult.nextState;
+      } else {
+        console.error("[NPC] Forced END_TURN also failed:", forceResult.errors);
+        addNarration("⚠ Could not advance turn — combat may be stuck", "error");
+        break;
+      }
+      render();
+    }
 
     // Delay between NPC turns for readability
     if (gameState.combat.mode === "combat" && isNpcTurn(gameState)) {
