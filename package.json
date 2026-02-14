@@ -63,6 +63,8 @@
     "ui": "node src/ui/serve.mjs",
     "ui:stop": "node -e \"const{execSync}=require('child_process');try{const o=execSync('netstat -aon|findstr :3001|findstr LISTENING',{encoding:'utf-8'});const pids=new Set(o.trim().split('\\n').map(l=>l.trim().split(/\\s+/).pop()).filter(p=>/^\\d+$/.test(p)&&p!=='0'));for(const p of pids){try{execSync('cmd.exe /c \\\"taskkill /F /PID '+p+'\\\"');console.log('Killed PID '+p)}catch{}}}catch{console.log('No process on port 3001')}\"",
     "prepare": "husky",
+    "gc": "node scripts/git-commit.mjs",
+    "gcp": "node scripts/git-commit.mjs",
     "version:patch": "npm version patch -m \"release: v%s\"",
     "version:minor": "npm version minor -m \"release: v%s\"",
     "version:tag": "git push origin main --tags"
