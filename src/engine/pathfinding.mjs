@@ -113,20 +113,21 @@ function buildTerrainCostMap(state) {
 }
 
 /**
- * Build the set of occupied cells (all entities except excludeId).
+ * Build the set of occupied cells (players + NPCs, excluding the moving entity).
+ * Objects (furniture, tables, etc.) do NOT block movement — only living entities do.
  * @param {object} state
  * @param {string} [excludeId] — entity to exclude (the one moving)
  * @returns {Set<string>}
  */
 function buildOccupiedSet(state, excludeId) {
   const set = new Set();
+  // Only players and NPCs block movement, NOT objects (furniture, terrain features)
   const all = [
     ...(state.entities?.players ?? []),
     ...(state.entities?.npcs ?? []),
-    ...(state.entities?.objects ?? []),
   ];
   for (const e of all) {
-    if (e.id !== excludeId) {
+    if (e.id !== excludeId && !e.conditions?.includes("dead")) {
       set.add(key(e.position.x, e.position.y));
     }
   }
@@ -329,12 +330,12 @@ export function findPathToAdjacent(state, moverId, targetId) {
     .map(({ dx, dy }) => ({ x: tx + dx, y: ty + dy }))
     .filter((c) => c.x >= 0 && c.x < width && c.y >= 0 && c.y < height);
 
-  // Find shortest path to any adjacent cell
+  // Find shortest path to any adjacent cell (NO speed cap — planner truncates)
   let best = null;
   for (const cell of adjacentCells) {
     const result = findPath(state, mover.position, cell, {
       entityId: moverId,
-      maxCost: mover.stats.movementSpeed,
+      // No maxCost — find the actual shortest path, planner will trim to speed
     });
     if (result && (best === null || result.cost < best.cost)) {
       best = { cell, path: result.path, cost: result.cost };
