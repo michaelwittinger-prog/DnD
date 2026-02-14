@@ -24,6 +24,7 @@ import { applyAttack } from "./attack.mjs";
 import { applyRollInitiative, applyEndTurn } from "./initiative.mjs";
 import { checkCombatEnd } from "./combatEnd.mjs";
 import { applyCondition } from "./conditions.mjs";
+import { applyAbility } from "./abilities.mjs";
 
 /**
  * @typedef {
@@ -35,7 +36,7 @@ import { applyCondition } from "./conditions.mjs";
  * } DeclaredAction
  */
 
-const VALID_ACTION_TYPES = new Set(["MOVE", "ATTACK", "DEFEND", "END_TURN", "ROLL_INITIATIVE", "SET_SEED"]);
+const VALID_ACTION_TYPES = new Set(["MOVE", "ATTACK", "DEFEND", "USE_ABILITY", "END_TURN", "ROLL_INITIATIVE", "SET_SEED"]);
 
 /**
  * Validate that a declared action has the correct shape.
@@ -60,6 +61,11 @@ function validateActionShape(action) {
       break;
     case "DEFEND":
       if (!action.entityId) return [makeError(ErrorCode.INVALID_ACTION, "DEFEND requires entityId")];
+      break;
+    case "USE_ABILITY":
+      if (!action.casterId) return [makeError(ErrorCode.INVALID_ACTION, "USE_ABILITY requires casterId")];
+      if (!action.abilityId) return [makeError(ErrorCode.INVALID_ACTION, "USE_ABILITY requires abilityId")];
+      if (!action.targetId) return [makeError(ErrorCode.INVALID_ACTION, "USE_ABILITY requires targetId")];
       break;
     case "END_TURN":
       if (!action.entityId) return [makeError(ErrorCode.INVALID_ACTION, "END_TURN requires entityId")];
@@ -91,6 +97,7 @@ function validateTurnOrder(state, action) {
     if (action.type === "MOVE") actingId = action.entityId;
     else if (action.type === "ATTACK") actingId = action.attackerId;
     else if (action.type === "DEFEND") actingId = action.entityId;
+    else if (action.type === "USE_ABILITY") actingId = action.casterId;
 
     if (actingId && combat.activeEntityId !== actingId) {
       errors.push(makeError(ErrorCode.NOT_YOUR_TURN, `It is not "${actingId}"'s turn (active: "${combat.activeEntityId}")`));
@@ -138,6 +145,9 @@ function validateActionBudget(state, action) {
   if (action.type === "DEFEND" && budget.actionUsed >= 1) {
     return [makeError(ErrorCode.BUDGET_EXHAUSTED ?? "BUDGET_EXHAUSTED", "Action already used this turn")];
   }
+  if (action.type === "USE_ABILITY" && budget.actionUsed >= 1) {
+    return [makeError(ErrorCode.BUDGET_EXHAUSTED ?? "BUDGET_EXHAUSTED", "Action already used this turn")];
+  }
   return [];
 }
 
@@ -152,6 +162,7 @@ function consumeBudget(state, action) {
   if (action.type === "MOVE") state.combat.turnBudget.movementUsed += 1;
   if (action.type === "ATTACK") state.combat.turnBudget.actionUsed += 1;
   if (action.type === "DEFEND") state.combat.turnBudget.actionUsed += 1;
+  if (action.type === "USE_ABILITY") state.combat.turnBudget.actionUsed += 1;
 }
 
 /**
@@ -351,6 +362,9 @@ export function applyAction(previousState, declaredAction) {
       break;
     case "DEFEND":
       result = applyDefend(clone, declaredAction);
+      break;
+    case "USE_ABILITY":
+      result = applyAbility(clone, declaredAction);
       break;
     case "ROLL_INITIATIVE":
       result = applyRollInitiative(clone);

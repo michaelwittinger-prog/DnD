@@ -30,6 +30,7 @@ import { applyDifficultyToEntities, getDifficulty } from "../engine/difficulty.m
 import { listPresets, PRESET_CHARACTERS } from "../content/characterCreator.mjs";
 import { listMapTemplates, buildScenario } from "../content/scenarioBuilder.mjs";
 import { generateEncounter } from "../content/encounterGenerator.mjs";
+import { ABILITY_CATALOGUE } from "../engine/abilities.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -233,22 +234,36 @@ function renderAbilityBar(isPlayerTurn) {
 
   const selectedTargetId = gameState.ui.selectedEntityId;
 
-  abilityBarEl.innerHTML = ent.abilities.map(ab => {
-    const onCooldown = (ab.cooldownRemaining ?? 0) > 0;
-    const icon = getAbilityIcon(ab.name);
+  // Resolve string ability IDs to catalogue objects
+  const resolvedAbilities = ent.abilities.map(abId => {
+    const id = typeof abId === "string" ? abId : abId.name;
+    const cat = ABILITY_CATALOGUE[id];
+    if (!cat) return null;
+    const cooldownRemaining = ent.abilityCooldowns?.[id] ?? 0;
+    return { id, ...cat, cooldownRemaining };
+  }).filter(Boolean);
+
+  if (resolvedAbilities.length === 0) {
+    abilityBarEl.innerHTML = `<div class="ability-empty">No abilities</div>`;
+    return;
+  }
+
+  abilityBarEl.innerHTML = resolvedAbilities.map(ab => {
+    const onCooldown = ab.cooldownRemaining > 0;
+    const icon = getAbilityIcon(ab.id);
     const rangeLabel = ab.range > 1 ? `${ab.range}☆` : "melee";
     const cooldownLabel = onCooldown ? ` (CD:${ab.cooldownRemaining})` : "";
     const targetInfo = ab.targeting === "ally" ? "👥ally" : "⚔enemy";
     const disabled = onCooldown ? "disabled" : "";
 
     return `<button class="ability-btn ${onCooldown ? 'on-cooldown' : ''}" 
-      data-ability="${ab.name}" 
+      data-ability="${ab.id}" 
       data-targeting="${ab.targeting || 'enemy'}"
       data-range="${ab.range || 1}"
       ${disabled}
       title="${ab.name} (${rangeLabel}, ${targetInfo})${cooldownLabel}">
       <span class="ability-icon">${icon}</span>
-      <span class="ability-name">${ab.name.replace(/_/g, ' ')}</span>
+      <span class="ability-name">${ab.id.replace(/_/g, ' ')}</span>
       <span class="ability-meta">${rangeLabel}</span>
     </button>`;
   }).join("");
@@ -335,7 +350,7 @@ function onAbilityClick(abilityName, targeting, range) {
   dispatch({
     type: "USE_ABILITY",
     casterId: activeId,
-    abilityName,
+    abilityId: abilityName,
     targetId,
   });
 }
@@ -449,6 +464,28 @@ function processEventVisuals(evt, prevState) {
     const winner = evt.payload.winner === "players" ? "🎉 Heroes Win!" : "💀 Enemies Win!";
     addNarration(winner, "combat");
     playCombatEnd();
+  }
+  if (evt.type === "ABILITY_USED") {
+    const p = evt.payload;
+    const target = findEntity(p.targetId);
+    if (target) {
+      if (p.abilityType === "attack") {
+        if (p.hit) {
+          addFloater(target.position.x, target.position.y, `-${p.damage} ${p.abilityName}`, "rgba(200, 100, 255, 1)");
+          if (p.targetHpAfter === 0) {
+            addFloater(target.position.x, target.position.y - 0.5, "💀", "rgba(255, 255, 255, 1)");
+            playKill();
+          } else {
+            playHit();
+          }
+        } else {
+          addFloater(target.position.x, target.position.y, `MISS ${p.abilityName}`, "rgba(200, 200, 200, 1)");
+          playMiss();
+        }
+      } else if (p.abilityType === "heal") {
+        addFloater(target.position.x, target.position.y, `+${p.actualHeal} 💚`, "rgba(100, 255, 100, 1)");
+      }
+    }
   }
   if (evt.type === "ACTION_REJECTED") {
     playError();
