@@ -158,6 +158,11 @@
           "items": { "type": "string", "minLength": 1 },
           "description": "Free-form condition strings. Each must be non-empty."
         },
+        "conditionDurations": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "Tracks remaining rounds for timed conditions. Keys are condition names, values are rounds remaining."
+        },
         "inventory": {
           "type": "array",
           "items": { "$ref": "#/$defs/inventoryItem" }
