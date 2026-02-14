@@ -195,6 +195,7 @@ function updateButtonStates() {
   const btnRollInit = document.getElementById("btn-roll-init");
   const btnEndTurn = document.getElementById("btn-end-turn");
   const btnAttack = document.getElementById("btn-attack");
+  const btnDefend = document.getElementById("btn-defend");
 
   const inCombat = gameState.combat.mode === "combat";
   const isPlayerTurn = inCombat && !isNpcTurn(gameState);
@@ -202,9 +203,141 @@ function updateButtonStates() {
   btnRollInit.disabled = inCombat || npcTurnRunning;
   btnEndTurn.disabled = !isPlayerTurn || npcTurnRunning;
   btnAttack.disabled = !gameState.ui.selectedEntityId || npcTurnRunning;
+  if (btnDefend) btnDefend.disabled = !isPlayerTurn || npcTurnRunning;
 
   // Disable canvas clicks during NPC turns
   canvas.style.pointerEvents = npcTurnRunning ? "none" : "auto";
+
+  // Render ability buttons for active player
+  renderAbilityBar(isPlayerTurn);
+}
+
+// ── Ability Bar (P7) ────────────────────────────────────────────────────
+
+const abilityBarEl = document.getElementById("ability-bar");
+
+function renderAbilityBar(isPlayerTurn) {
+  if (!abilityBarEl) return;
+
+  if (!isPlayerTurn || npcTurnRunning) {
+    abilityBarEl.innerHTML = "";
+    return;
+  }
+
+  const activeId = gameState.combat.activeEntityId;
+  const ent = activeId ? findEntity(activeId) : null;
+  if (!ent || !ent.abilities || ent.abilities.length === 0) {
+    abilityBarEl.innerHTML = `<div class="ability-empty">No abilities</div>`;
+    return;
+  }
+
+  const selectedTargetId = gameState.ui.selectedEntityId;
+
+  abilityBarEl.innerHTML = ent.abilities.map(ab => {
+    const onCooldown = (ab.cooldownRemaining ?? 0) > 0;
+    const icon = getAbilityIcon(ab.name);
+    const rangeLabel = ab.range > 1 ? `${ab.range}☆` : "melee";
+    const cooldownLabel = onCooldown ? ` (CD:${ab.cooldownRemaining})` : "";
+    const targetInfo = ab.targeting === "ally" ? "👥ally" : "⚔enemy";
+    const disabled = onCooldown ? "disabled" : "";
+
+    return `<button class="ability-btn ${onCooldown ? 'on-cooldown' : ''}" 
+      data-ability="${ab.name}" 
+      data-targeting="${ab.targeting || 'enemy'}"
+      data-range="${ab.range || 1}"
+      ${disabled}
+      title="${ab.name} (${rangeLabel}, ${targetInfo})${cooldownLabel}">
+      <span class="ability-icon">${icon}</span>
+      <span class="ability-name">${ab.name.replace(/_/g, ' ')}</span>
+      <span class="ability-meta">${rangeLabel}</span>
+    </button>`;
+  }).join("");
+
+  // Attach click handlers
+  abilityBarEl.querySelectorAll(".ability-btn:not([disabled])").forEach(btn => {
+    btn.addEventListener("click", () => onAbilityClick(btn.dataset.ability, btn.dataset.targeting, Number(btn.dataset.range)));
+  });
+}
+
+function getAbilityIcon(name) {
+  const icons = {
+    firebolt: "🔥",
+    healing_word: "💚",
+    sneak_attack: "🗡",
+    poison_strike: "☠",
+    shield_bash: "🛡",
+    second_wind: "💨",
+    hunters_mark: "🎯",
+  };
+  return icons[name] || "✨";
+}
+
+function onAbilityClick(abilityName, targeting, range) {
+  const activeId = gameState.combat.activeEntityId;
+  if (!activeId) return;
+
+  let targetId = null;
+
+  if (targeting === "ally") {
+    // Auto-target most injured ally
+    const allies = gameState.entities.players.filter(
+      p => p.id !== activeId && !p.conditions.includes("dead") && p.stats.hpCurrent < p.stats.hpMax
+    );
+    if (allies.length === 0) {
+      // No injured allies — target self if possible
+      const self = findEntity(activeId);
+      if (self && self.stats.hpCurrent < self.stats.hpMax) {
+        targetId = activeId;
+      } else {
+        showFeedback("No injured allies to heal", false);
+        addNarration("⚠ No injured allies to target", "error");
+        return;
+      }
+    } else {
+      // Pick most injured
+      const mostInjured = allies.sort((a, b) =>
+        (a.stats.hpCurrent / a.stats.hpMax) - (b.stats.hpCurrent / b.stats.hpMax)
+      )[0];
+      targetId = mostInjured.id;
+    }
+  } else {
+    // Enemy targeting — use selected entity or nearest hostile
+    const selectedId = gameState.ui.selectedEntityId;
+    if (selectedId && selectedId !== activeId) {
+      const target = findEntity(selectedId);
+      if (target && target.kind === "npc" && !target.conditions.includes("dead")) {
+        targetId = selectedId;
+      }
+    }
+
+    if (!targetId) {
+      // Auto-target nearest hostile in range
+      const activeEnt = findEntity(activeId);
+      if (!activeEnt) return;
+      const hostiles = gameState.entities.npcs
+        .filter(n => !n.conditions.includes("dead"))
+        .map(n => ({
+          entity: n,
+          dist: Math.abs(n.position.x - activeEnt.position.x) + Math.abs(n.position.y - activeEnt.position.y),
+        }))
+        .filter(h => h.dist <= range)
+        .sort((a, b) => a.dist - b.dist);
+
+      if (hostiles.length === 0) {
+        showFeedback(`No enemies in range (${range})`, false);
+        addNarration(`⚠ No enemies within ${range} range for ${abilityName.replace(/_/g, ' ')}`, "error");
+        return;
+      }
+      targetId = hostiles[0].entity.id;
+    }
+  }
+
+  dispatch({
+    type: "USE_ABILITY",
+    casterId: activeId,
+    abilityName,
+    targetId,
+  });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -1075,6 +1208,14 @@ initInputController({
   onSelect,
   onAiPropose,
   onHoverCell,
+});
+
+// ── Defend Button (DEFEND action) ───────────────────────────────────────
+
+document.getElementById("btn-defend")?.addEventListener("click", () => {
+  const activeId = gameState.combat?.activeEntityId;
+  if (!activeId) return;
+  dispatch({ type: "DEFEND", entityId: activeId });
 });
 
 // Start floater animation

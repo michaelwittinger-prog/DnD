@@ -327,6 +327,79 @@ body {
   cursor: not-allowed;
 }
 
+/* ── Ability Bar (P7) ──────────────────────────────────────────────── */
+
+#ability-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0;
+}
+
+.ability-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 10px;
+  border: 2px solid #6a5acd;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #2a2045 0%, #1a1530 100%);
+  color: #e0d8ff;
+  cursor: pointer;
+  font-size: 11px;
+  min-width: 64px;
+  transition: all 0.15s;
+}
+
+.ability-btn:hover:not([disabled]) {
+  border-color: #9b8ce8;
+  background: linear-gradient(180deg, #3a2d65 0%, #2a2045 100%);
+  box-shadow: 0 0 8px rgba(155, 140, 232, 0.4);
+  transform: translateY(-1px);
+}
+
+.ability-btn:active:not([disabled]) {
+  transform: translateY(0);
+}
+
+.ability-btn[disabled], .ability-btn.on-cooldown {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: #444;
+}
+
+.ability-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ability-name {
+  font-size: 10px;
+  text-transform: capitalize;
+  margin-top: 2px;
+}
+
+.ability-meta {
+  font-size: 9px;
+  color: #888;
+}
+
+.ability-empty {
+  font-size: 11px;
+  color: #666;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+#btn-defend {
+  background: #2a3a2a;
+  border-color: #4a7a4a;
+}
+
+#btn-defend:hover:not([disabled]) {
+  background: #3a4a3a;
+}
+
 #action-feedback {
   font-size: 0.75rem;
   min-height: 1.2em;
