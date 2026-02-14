@@ -231,6 +231,11 @@ function applyDefend(state, action) {
   // Apply "dodging" condition (+2 AC for 1 round)
   applyCondition(entity, "dodging", 1);
 
+  // Heal 2 HP (capped at hpMax) — defensive recovery
+  const hpBefore = entity.stats.hpCurrent;
+  entity.stats.hpCurrent = Math.min(entity.stats.hpCurrent + 2, entity.stats.hpMax);
+  const hpHealed = entity.stats.hpCurrent - hpBefore;
+
   // Log DEFEND_APPLIED event
   const eventId = `evt-${(state.log.events.length + 1).toString().padStart(4, "0")}`;
   state.log.events.push({
@@ -243,6 +248,8 @@ function applyDefend(state, action) {
       acBonus: 2,
       duration: 1,
       effectiveAc: entity.stats.ac + 2,
+      hpHealed,
+      hpAfter: entity.stats.hpCurrent,
     },
   });
 
