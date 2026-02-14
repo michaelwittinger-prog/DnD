@@ -113,11 +113,11 @@ MIR is a deterministic, event-sourced game engine for hybrid analog-first tablet
   │ (engine)  │  │   (A*)   │  │ abilities │
   └──────────┘   └──────────┘   └──────────┘
 
-  BUILT BUT NOT YET WIRED INTO UI:
-  ├── LLM Parser (parseLLMIntent) — needs adapter toggle in UI
-  ├── Multi-Action Turns — NPCs still use simpler strategy
-  ├── Memory Context — not feeding into prompts yet
-  └── WebSocket Broadcast — no live server instance
+  WIRED AND ACTIVE:
+  ├── ✅ LLM Parser (parseLLMIntent) — selectable in UI via adapter toggle
+  ├── ✅ Multi-Action Turns — NPCs with abilities use action economy (move+action+bonus)
+  ├── ✅ Memory Context — feeds into LLM prompts via intentPromptBuilder
+  └── ⬜ WebSocket Broadcast — no live server instance yet
 ```
 
 ### Next Priority: Integration Wiring
@@ -126,10 +126,10 @@ The biggest gap is NOT missing features — it's **connecting built systems to t
 
 | Priority | What | Impact | Effort |
 |----------|------|--------|--------|
-| **P1** | Wire LLM parser as selectable mode in UI | Narrative language works | Low |
-| **P2** | Wire multi-action turns into NPC combat controller | Smarter NPCs | Medium |
+| **P1** | Wire LLM parser as selectable mode in UI | Narrative language works | ✅ DONE |
+| **P2** | Wire multi-action turns into NPC combat controller | Smarter NPCs | ✅ DONE (was already wired; stats field bug fixed Session 23) |
 | **P3** | Content UI (encounter generator, character creator buttons) | Use Tier 5/6 systems | Medium |
-| **P4** | Wire memory context into LLM prompts | Better AI understanding | Low |
+| **P4** | Wire memory context into LLM prompts | Better AI understanding | ✅ DONE (was already wired in intentPromptBuilder) |
 | **P5** | Live WebSocket server for multiplayer | Sprint 3 goes live | High |
 
 ---
@@ -568,13 +568,19 @@ fixtures/
    Total:       1600 automated tests, 28 test files, 17 sessions
 ```
 
-### Next Priorities (Integration Wiring)
+### Next Priorities (Updated Session 23 — 2026-02-14)
 
 ```
-NEXT:     P1 — Wire LLM parser into UI (selectable mock/LLM mode)
-THEN:     P2 — Wire multi-action turns into NPC combat controller
-THEN:     P3 — Content UI (encounter generator, character creator buttons)
-THEN:     P4 — Wire memory context into LLM prompts
+✅ DONE:    P1 — LLM parser wired into UI (selectable mock/LLM mode)
+✅ DONE:    P2 — Multi-action turns wired into NPC combat controller
+✅ DONE:    P4 — Memory context wired into LLM prompts
+✅ DONE:    Versioning framework (Husky pre-commit, semver, CI, branch protection guide)
+
+NEXT:     P3 — Content UI (encounter generator, character creator buttons in browser)
+NEXT:     P7 — Ability UI buttons (USE_ABILITY clickable in combat)
+NEXT:     P5 — Live WebSocket server for multiplayer
+THEN:     F1 — TypeScript migration (start with src/engine/)
+THEN:     L1 — Replace console.log with structured logger
 LATER:    Tier 6 remaining — Map editor, rule modules, procedural dungeons
 LATER:    Tier 8  — Visual polish (sprites, terrain tiles, animations)
 LATER:    Tier 9  — Analog hybrid (voice input, TTS, dice camera)
@@ -582,4 +588,4 @@ FUTURE:   Tier 10 — World interaction (SEARCH, INTERACT, TALK_TO, REST, etc.)
 ONGOING:  Testing, accessibility, legal, monetization design
 ```
 
-**Current priority: Integration → Polish → Content → Market.**
+**Current priority: Content UI → TypeScript migration → Polish → Market.**

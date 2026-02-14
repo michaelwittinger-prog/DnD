@@ -293,12 +293,13 @@ function findUsableBonusAbility(npc, abilities, state, entityId) {
     if (ab.targeting === "ally") {
       const allies = (state.entities?.npcs ?? []).filter(
         e => e.id !== entityId && !e.conditions?.includes("dead") &&
-             e.stats?.hp < e.stats?.maxHp
+             (e.stats?.hpCurrent ?? e.stats?.hp) < (e.stats?.hpMax ?? e.stats?.maxHp)
       );
       if (allies.length > 0) {
         // Heal the most injured
         const mostInjured = allies.sort((a, b) =>
-          (a.stats.hp / a.stats.maxHp) - (b.stats.hp / b.stats.maxHp)
+          ((a.stats.hpCurrent ?? a.stats.hp) / (a.stats.hpMax ?? a.stats.maxHp)) -
+          ((b.stats.hpCurrent ?? b.stats.hp) / (b.stats.hpMax ?? b.stats.maxHp))
         )[0];
         return { ability: ab, target: mostInjured };
       }
