@@ -106,6 +106,7 @@ function planMoveTo(state, subjectId, x, y, allEntities) {
     return fail(`${entity.name} is already at (${x}, ${y})`);
   }
 
+  // Find full path WITHOUT speed cap — we truncate to speed afterward
   const result = findPath(state, entity.position, { x, y }, { entityId: subjectId });
   const path = result?.path;
   if (!path || path.length === 0) {
@@ -115,10 +116,15 @@ function planMoveTo(state, subjectId, x, y, allEntities) {
   // Trim path to movement speed
   const speed = entity.stats?.movementSpeed ?? 6;
   const trimmedPath = path.slice(0, speed);
+  const arrived = trimmedPath.length === path.length;
+  const dest = trimmedPath[trimmedPath.length - 1];
+  const hint = arrived
+    ? `Moving ${entity.name} to (${dest.x}, ${dest.y})`
+    : `Moving ${entity.name} toward (${x}, ${y}) — reached (${dest.x}, ${dest.y}), ${path.length - trimmedPath.length} steps remaining`;
 
   return ok(
     [{ type: "MOVE", entityId: subjectId, path: trimmedPath }],
-    `Moving ${entity.name} to (${trimmedPath[trimmedPath.length - 1].x}, ${trimmedPath[trimmedPath.length - 1].y})`
+    hint
   );
 }
 
@@ -346,11 +352,18 @@ function planCompound(state, steps, allEntities) {
   const allActions = [];
   const hints = [];
 
+  // Project state forward between sub-steps so each step plans
+  // from the correct entity positions (e.g., "go north 3 then east 2")
+  let projectedState = state;
+
   for (const step of steps) {
-    const subPlan = planFromIntent(state, step);
+    const subPlan = planFromIntent(projectedState, step);
     if (subPlan.ok) {
       allActions.push(...subPlan.actions);
       hints.push(subPlan.narrationHint);
+
+      // Project entity positions forward for next sub-step
+      projectedState = projectStateAfterActions(projectedState, subPlan.actions);
     }
     // Continue even if a sub-step fails — partial execution is fine
   }
@@ -360,6 +373,43 @@ function planCompound(state, steps, allEntities) {
   }
 
   return ok(allActions, hints.join(", then "));
+}
+
+/**
+ * Create a lightweight projected state after applying MOVE actions.
+ * Only updates entity positions — does NOT run full engine validation.
+ * Used by planCompound to give each sub-step the correct starting position.
+ */
+function projectStateAfterActions(state, actions) {
+  let projected = state;
+
+  for (const action of actions) {
+    if (action.type === "MOVE" && action.path?.length > 0) {
+      const finalPos = action.path[action.path.length - 1];
+      projected = projectEntityPosition(projected, action.entityId, finalPos);
+    }
+  }
+
+  return projected;
+}
+
+/**
+ * Return a new state with one entity's position updated.
+ * Shallow-clones only the necessary layers (entities → players/npcs arrays → entity).
+ */
+function projectEntityPosition(state, entityId, newPos) {
+  const updateList = (list) =>
+    list?.map(e => e.id === entityId ? { ...e, position: { ...newPos } } : e) ?? [];
+
+  return {
+    ...state,
+    entities: {
+      ...state.entities,
+      players: updateList(state.entities?.players),
+      npcs: updateList(state.entities?.npcs),
+      objects: state.entities?.objects ?? [],
+    },
+  };
 }
 
 // ── Entity Resolution ────────────────────────────────────────────────
