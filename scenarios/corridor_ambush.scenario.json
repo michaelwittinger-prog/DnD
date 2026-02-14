@@ -153,6 +153,7 @@
             "style": "mini",
             "spriteKey": "seren-paladin"
           },
+          "abilities": ["shield_bash", "healing_word"],
           "controller": {
             "type": "human",
             "playerId": "pc-seren"
@@ -197,6 +198,7 @@
             "style": "standee",
             "spriteKey": "miri-ranger"
           },
+          "abilities": ["firebolt", "sneak_attack"],
           "controller": {
             "type": "human",
             "playerId": "pc-miri"
