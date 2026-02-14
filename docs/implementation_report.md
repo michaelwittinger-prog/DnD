@@ -282,3 +282,43 @@ User types text in src/ui/
 
 ### Debug-only
 - `viewer/` — observability tool for turn bundles, not the game UI
+
+---
+
+## 10. Bugfix Log
+
+### Session 21 — Compound Commands + Pathfinding (2026-02-14)
+
+**Branch:** `fix/compound-commands-and-pathfinding` (merged to main as `a6fcbb4`)  
+**Tag before:** `v0.20.0` (safe rollback point)  
+**Tests:** 294/294 pass (199 intent + 95 pathfinding + 15 fixtures)
+
+#### Bug 1: Compound commands only execute first step
+
+**Symptom:** "go three steps north then two steps east" only moved north.  
+**Root cause:** `planCompound()` in `intentPlanner.mjs` passed the same original state to every sub-step. So both MOVE actions were planned from the same starting position. When the executor ran them sequentially, the second MOVE had a path starting from a position the entity was no longer at.  
+**Fix:** After each sub-step in `planCompound`, create a lightweight projected state with updated entity positions. Each subsequent sub-step plans from the projected position. Added `projectStateAfterActions()` and `projectEntityPosition()` helper functions.  
+**Files changed:** `src/ai/intentPlanner.mjs`
+
+#### Bug 2: Pathfinding fails around objects instead of routing around them
+
+**Symptom:** "go to the wooden table" failed with "No valid path" when objects were between the entity and the target.  
+**Root cause (3 sub-issues):**
+1. `buildOccupiedSet()` in `pathfinding.mjs` included objects (furniture, tables) in the blocked cell set. A* treated them as impassable walls.
+2. Dead entities were also blocking pathfinding.
+3. `findPathToAdjacent()` used `maxCost: mover.stats.movementSpeed` — if the detour path was longer than movement speed, A* returned null instead of finding the actual shortest path and letting the planner truncate.
+
+**Fix:**
+1. Removed `entities.objects` from `buildOccupiedSet()`. Only players and NPCs block movement.
+2. Added `!e.conditions?.includes("dead")` check — dead entities don't block.
+3. Removed `maxCost` from `findPathToAdjacent()`. The planner now finds the full shortest path first, then truncates to movement speed. This gives partial progress ("moved toward the table") instead of "no path at all".
+
+**Files changed:** `src/engine/pathfinding.mjs`, `src/ai/intentPlanner.mjs`
+
+#### Versioning Note
+
+All changes use proper Git branching:
+- `v0.20.0` tag = pre-bugfix stable state (always rollback-safe)
+- Feature branches for non-trivial changes
+- Pre-commit hooks run all 15 fixture tests before allowing commit
+- Deep tests (intent_system_test, pathfinding_test) run manually before merge
