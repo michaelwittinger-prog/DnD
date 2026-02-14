@@ -1,0 +1,12 @@
+# Pre-commit gate: fast validation checks (~5 seconds)
+# Catches schema violations, mutation bugs, invariant breaks, and fixture regressions
+# Full test suite (1600+ tests) runs in CI — not here (too slow for commit flow)
+
+echo "🔒 Pre-commit gate: schema + smoke + invariants + fixtures..."
+
+npm run validate || { echo "❌ Schema validation failed"; exit 1; }
+npm run smoke || { echo "❌ Smoke mutation test failed"; exit 1; }
+npm run invariants || { echo "❌ Invariant check failed"; exit 1; }
+npm run fixtures || { echo "❌ Fixture tests failed"; exit 1; }
+
+echo "✅ Pre-commit gate passed"

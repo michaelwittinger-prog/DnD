@@ -4,3 +4,18 @@ dist/
 *.log
 out/
 nul
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temp state files
+cUsersmichaDnDreplays_temp_state.json
+*.temp.json
+
+# Build artifacts
+*.tsbuildinfo

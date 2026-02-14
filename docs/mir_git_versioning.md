@@ -1,0 +1,170 @@
+# MIR Git & Versioning Guide
+
+> Created: 2026-02-14 · Session 23  
+> Purpose: Versioning discipline, branch protection, release workflow
+
+---
+
+## 1. Versioning Scheme
+
+We use **Semantic Versioning** (semver): `MAJOR.MINOR.PATCH`
+
+| Bump | When | Example |
+|------|------|---------|
+| **PATCH** (`0.22.0` → `0.22.1`) | Bug fixes, small improvements, doc updates | Fix pathfinding edge case |
+| **MINOR** (`0.22.0` → `0.23.0`) | New feature, new module, sprint completion | Add map editor, wire multi-action turns |
+| **MAJOR** (`0.x` → `1.0.0`) | Breaking change or public release milestone | TypeScript migration complete, v1.0 launch |
+
+### Current Version: `0.22.0` (Session 22)
+
+The `0.x` prefix means pre-release / active development. Version `1.0.0` is reserved for the first production-ready release.
+
+---
+
+## 2. How to Version
+
+### After completing a session with code changes:
+
+```bash
+# For bug fixes / small changes:
+npm run version:patch
+# Creates commit "release: v0.22.1" + git tag v0.22.1
+
+# For new features / sprint completions:
+npm run version:minor
+# Creates commit "release: v0.23.0" + git tag v0.23.0
+
+# Push to GitHub with tags:
+npm run version:tag
+# Pushes main + all tags to origin
+```
+
+### What `npm version` does automatically:
+1. Updates `version` in `package.json`
+2. Creates a git commit with message `release: v0.X.Y`
+3. Creates a git tag `v0.X.Y`
+
+### Versioning discipline:
+- **Every session that changes code** should end with a version bump
+- Bug fix sessions → `version:patch`
+- Feature sessions → `version:minor`
+- Always push tags: `npm run version:tag`
+
+---
+
+## 3. Pre-Commit Hooks (Husky)
+
+Every `git commit` automatically runs:
+
+```
+🔒 Pre-commit gate: schema + smoke + invariants + fixtures
+├── npm run validate     — Game state schema validation
+├── npm run smoke        — Smoke mutation test
+├── npm run invariants   — 25 invariant checks
+└── npm run fixtures     — Fixture regression tests
+```
+
+**If any gate fails, the commit is blocked.** Fix the issue, then commit again.
+
+To bypass in emergencies (NOT recommended):
+```bash
+git commit --no-verify -m "emergency: ..."
+```
+
+The full test suite (1600+ tests) runs in CI on push — not in the pre-commit hook (too slow).
+
+---
+
+## 4. Branch Protection (GitHub)
+
+### Setup Steps (one-time, in GitHub web UI):
+
+1. Go to: `https://github.com/michaelwittinger-prog/DnD/settings/branches`
+2. Click **"Add branch protection rule"** (or "Add classic branch protection rule")
+3. Branch name pattern: `main`
+4. Enable these settings:
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| **Require status checks to pass before merging** | ✅ ON | CI must pass |
+| → Status checks: `Validate & Test (20)` and `Validate & Test (22)` | ✅ Required | Both Node versions must pass |
+| **Require branches to be up to date** | ✅ ON | No stale merges |
+| **Do not allow bypassing the above settings** | ❌ OFF (for now) | Solo dev needs escape hatch |
+
+5. Click **"Create"** / **"Save changes"**
+
+### Optional (recommended later when adding collaborators):
+- **Require pull request reviews** — forces PR workflow
+- **Require linear history** — no merge commits
+- **Require signed commits** — GPG verification
+
+### For solo development:
+Direct push to `main` is fine as long as:
+- Pre-commit hooks run (Husky enforces this)
+- CI runs on push (GitHub Actions enforces this)
+- Version tags mark stable points (rollback safety)
+
+---
+
+## 5. Git Workflow
+
+### Daily workflow:
+```bash
+# Work on code...
+git add -A
+git commit -m "feat: description"     # Pre-commit hook runs automatically
+git push origin main                    # CI runs on GitHub
+```
+
+### After completing a feature/session:
+```bash
+npm run version:minor                   # Bumps version + creates tag
+npm run version:tag                     # Pushes to GitHub with tag
+```
+
+### For risky changes:
+```bash
+git checkout -b feature/my-risky-thing  # Work on branch
+# ... make changes, commit ...
+git checkout main
+git merge feature/my-risky-thing        # Merge when stable
+git branch -d feature/my-risky-thing    # Clean up local
+git push origin --delete feature/my-risky-thing  # Clean up remote
+```
+
+---
+
+## 6. Tag History
+
+| Tag | Date | What |
+|-----|------|------|
+| `v0.6.0` | 2026-02-10 | Early foundation |
+| `v0.20.0` | 2026-02-14 | Pre-architecture-consolidation safe point |
+| `v0.22.0` | 2026-02-14 | Architecture consolidation + DEFEND + dead body terrain + versioning framework |
+
+---
+
+## 7. Commit Message Convention
+
+```
+type: short description
+
+Types:
+  feat:     New feature
+  fix:      Bug fix
+  docs:     Documentation only
+  refactor: Code change that neither fixes a bug nor adds a feature
+  test:     Adding or fixing tests
+  chore:    Build process, CI, dependencies
+  release:  Version bump (auto-generated by npm version)
+```
+
+Examples:
+```
+feat: wire multi-action turns into NPC combat controller
+fix: pathfinding fails around furniture objects
+docs: update roadmap with Tier 8 progress
+test: add 30 visibility edge case tests
+chore: set up Husky pre-commit hooks
+release: v0.23.0
+```
