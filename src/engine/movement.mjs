@@ -13,6 +13,8 @@ import { ErrorCode, makeError } from "./errors.mjs";
 
 /**
  * Build a set of occupied cell keys excluding a specific entity.
+ * Dead entities are walkable (they cost double, but don't block).
+ * Objects (furniture) don't block movement.
  * @param {object} state
  * @param {string} excludeId
  * @returns {Set<string>}
@@ -22,10 +24,31 @@ function occupiedCells(state, excludeId) {
   const all = [
     ...(state.entities?.players ?? []),
     ...(state.entities?.npcs ?? []),
-    ...(state.entities?.objects ?? []),
   ];
   for (const e of all) {
-    if (e.id !== excludeId) set.add(`${e.position.x},${e.position.y}`);
+    if (e.id !== excludeId && !e.conditions?.includes("dead")) {
+      set.add(`${e.position.x},${e.position.y}`);
+    }
+  }
+  return set;
+}
+
+/**
+ * Build a set of dead entity cell keys (cost 2 to step over).
+ * @param {object} state
+ * @param {string} excludeId
+ * @returns {Set<string>}
+ */
+function deadEntityCells(state, excludeId) {
+  const set = new Set();
+  const all = [
+    ...(state.entities?.players ?? []),
+    ...(state.entities?.npcs ?? []),
+  ];
+  for (const e of all) {
+    if (e.id !== excludeId && e.conditions?.includes("dead")) {
+      set.add(`${e.position.x},${e.position.y}`);
+    }
   }
   return set;
 }
@@ -77,18 +100,14 @@ export function applyMove(state, action) {
     return { ok: false, errors };
   }
 
-  // Movement speed check
-  if (path.length > entity.stats.movementSpeed) {
-    errors.push(makeError(ErrorCode.OUT_OF_RANGE, `Path length ${path.length} exceeds movementSpeed ${entity.stats.movementSpeed}`));
-    return { ok: false, errors };
-  }
-
   const { width, height } = state.map.grid.size;
   const blocked = blockedCells(state);
   const occupied = occupiedCells(state, entityId);
+  const deadCells = deadEntityCells(state, entityId);
 
-  // Validate each step
+  // Validate each step and compute total movement cost
   let prev = { x: entity.position.x, y: entity.position.y };
+  let totalCost = 0;
   for (let i = 0; i < path.length; i++) {
     const step = path[i];
     const dx = step.x - prev.x;
@@ -113,13 +132,22 @@ export function applyMove(state, action) {
       return { ok: false, errors };
     }
 
-    // Overlap (only check final position for other entities, but also intermediate)
+    // Overlap with living entities
     if (occupied.has(ck)) {
       errors.push(makeError(ErrorCode.OVERLAP, `Step ${i}: (${step.x},${step.y}) is occupied`));
       return { ok: false, errors };
     }
 
+    // Dead entity = difficult terrain (costs 2 movement instead of 1)
+    totalCost += deadCells.has(ck) ? 2 : 1;
+
     prev = step;
+  }
+
+  // Movement speed check (cost-based, accounts for difficult terrain)
+  if (totalCost > entity.stats.movementSpeed) {
+    errors.push(makeError(ErrorCode.OUT_OF_RANGE, `Movement cost ${totalCost} exceeds movementSpeed ${entity.stats.movementSpeed}`));
+    return { ok: false, errors };
   }
 
   // Apply: update entity position to final path cell

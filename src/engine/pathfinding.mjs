@@ -99,14 +99,27 @@ function buildBlockedSet(state) {
 /**
  * Build a map of terrain movement costs.
  * Normal cells cost 1. Difficult terrain costs 2.
+ * Dead entities also cost 2 (stepping over a body is difficult terrain).
  * @param {object} state
+ * @param {string} [excludeId] — entity to exclude (the one moving)
  * @returns {Map<string, number>}
  */
-function buildTerrainCostMap(state) {
+function buildTerrainCostMap(state, excludeId) {
   const costs = new Map();
+  // Difficult terrain tiles
   for (const t of state.map?.terrain ?? []) {
     if (!t.blocksMovement && t.type === "difficult") {
       costs.set(key(t.x, t.y), 2);
+    }
+  }
+  // Dead entities = difficult terrain (stepping over a body costs double)
+  const allCombatants = [
+    ...(state.entities?.players ?? []),
+    ...(state.entities?.npcs ?? []),
+  ];
+  for (const e of allCombatants) {
+    if (e.id !== excludeId && e.conditions?.includes("dead")) {
+      costs.set(key(e.position.x, e.position.y), 2);
     }
   }
   return costs;
@@ -161,7 +174,7 @@ export function findPath(state, start, goal, opts = {}) {
 
   const blocked = buildBlockedSet(state);
   const occupied = buildOccupiedSet(state, entityId);
-  const terrainCosts = buildTerrainCostMap(state);
+  const terrainCosts = buildTerrainCostMap(state, entityId);
 
   // Goal itself blocked by terrain → unreachable
   if (blocked.has(key(goal.x, goal.y))) return null;
