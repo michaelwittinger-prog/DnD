@@ -14,6 +14,7 @@ function makeEntity(id, kind, name, x, y, overrides = {}) {
     size: "M",
     stats: { hpCurrent: 20, hpMax: 20, ac: 14, movementSpeed: 6 },
     conditions: [],
+    abilities: [],
     inventory: [],
     token: { style: "mini", spriteKey: null },
     controller: { type: kind === "player" ? "human" : "ai", playerId: kind === "player" ? id : null },
@@ -51,6 +52,7 @@ export const explorationExample = {
     players: [
       makeEntity("pc-seren", "player", "Seren Ashford", 2, 3, {
         stats: { hpCurrent: 22, hpMax: 28, ac: 16, movementSpeed: 6 },
+        abilities: ["shield_bash", "healing_word"],
         inventory: [
           { id: "item-longsword", name: "Longsword", qty: 1, tags: ["weapon", "melee"] },
           { id: "item-shield", name: "Shield", qty: 1, tags: ["armor"] },
@@ -59,6 +61,7 @@ export const explorationExample = {
       }),
       makeEntity("pc-miri", "player", "Miri Thistledown", 4, 6, {
         stats: { hpCurrent: 18, hpMax: 22, ac: 13, movementSpeed: 6 },
+        abilities: ["firebolt", "sneak_attack"],
         inventory: [
           { id: "item-shortbow", name: "Shortbow", qty: 1, tags: ["weapon", "ranged"] },
           { id: "item-arrows", name: "Arrows", qty: 20, tags: ["ammo"] },
@@ -127,6 +130,7 @@ export const demoEncounter = {
     players: [
       makeEntity("pc-seren", "player", "Seren Ashford", 2, 3, {
         stats: { hpCurrent: 22, hpMax: 28, ac: 16, movementSpeed: 6 },
+        abilities: ["shield_bash", "healing_word"],
         inventory: [
           { id: "item-longsword", name: "Longsword", qty: 1, tags: ["weapon", "melee"] },
           { id: "item-shield", name: "Shield", qty: 1, tags: ["armor"] },
@@ -135,6 +139,7 @@ export const demoEncounter = {
       }),
       makeEntity("pc-miri", "player", "Miri Thistledown", 4, 6, {
         stats: { hpCurrent: 18, hpMax: 22, ac: 13, movementSpeed: 6 },
+        abilities: ["firebolt", "sneak_attack"],
         inventory: [
           { id: "item-shortbow", name: "Shortbow", qty: 1, tags: ["weapon", "ranged"] },
           { id: "item-arrows", name: "Arrows", qty: 20, tags: ["ammo"] },
@@ -148,6 +153,7 @@ export const demoEncounter = {
       }),
       makeEntity("npc-goblin", "npc", "Goblin Sneak", 9, 5, {
         stats: { hpCurrent: 10, hpMax: 12, ac: 13, movementSpeed: 6 },
+        abilities: ["poison_strike"],
       }),
     ],
     objects: [
@@ -202,6 +208,7 @@ export const combatExample = {
     players: [
       makeEntity("pc-seren", "player", "Seren Ashford", 3, 5, {
         stats: { hpCurrent: 20, hpMax: 28, ac: 16, movementSpeed: 6 },
+        abilities: ["shield_bash", "healing_word"],
         inventory: [
           { id: "item-longsword", name: "Longsword", qty: 1, tags: ["weapon", "melee"] },
         ],
@@ -209,6 +216,7 @@ export const combatExample = {
       }),
       makeEntity("pc-miri", "player", "Miri Thistledown", 4, 7, {
         stats: { hpCurrent: 15, hpMax: 22, ac: 13, movementSpeed: 6 },
+        abilities: ["firebolt", "sneak_attack"],
         conditions: ["prone"],
         inventory: [
           { id: "item-shortbow", name: "Shortbow", qty: 1, tags: ["weapon", "ranged"] },
@@ -220,9 +228,11 @@ export const combatExample = {
     npcs: [
       makeEntity("npc-goblin-a", "npc", "Goblin Scrapper", 7, 5, {
         stats: { hpCurrent: 5, hpMax: 12, ac: 13, movementSpeed: 6 },
+        abilities: ["poison_strike"],
       }),
       makeEntity("npc-goblin-b", "npc", "Goblin Archer", 9, 8, {
         stats: { hpCurrent: 10, hpMax: 10, ac: 12, movementSpeed: 6 },
+        abilities: ["poison_strike"],
       }),
     ],
     objects: [],
