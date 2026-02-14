@@ -1,6 +1,6 @@
 {
   "name": "ai-gm-rpg",
-  "version": "0.22.1",
+  "version": "0.23.0",
   "description": "Hybrid analog tabletop RPG with AI Game Master",
   "main": "index.js",
   "scripts": {
