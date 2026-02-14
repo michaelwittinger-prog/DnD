@@ -27,6 +27,7 @@ export const CONDITION_DEFS = {
   prone: { meleeAdvantageAgainst: true, rangedDisadvantageAgainst: true, duration: 0 },
   blessed: { attackMod: 2, duration: 3 },
   burning: { dotDice: [1, 4], dotType: "fire", duration: 3 },
+  dodging: { acMod: 2, duration: 1 },  // Defend action: +2 AC until start of next turn
 };
 
 /**

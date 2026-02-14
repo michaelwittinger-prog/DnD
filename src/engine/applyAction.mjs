@@ -23,6 +23,7 @@ import { applyMove } from "./movement.mjs";
 import { applyAttack } from "./attack.mjs";
 import { applyRollInitiative, applyEndTurn } from "./initiative.mjs";
 import { checkCombatEnd } from "./combatEnd.mjs";
+import { applyCondition } from "./conditions.mjs";
 
 /**
  * @typedef {
@@ -34,7 +35,7 @@ import { checkCombatEnd } from "./combatEnd.mjs";
  * } DeclaredAction
  */
 
-const VALID_ACTION_TYPES = new Set(["MOVE", "ATTACK", "END_TURN", "ROLL_INITIATIVE", "SET_SEED"]);
+const VALID_ACTION_TYPES = new Set(["MOVE", "ATTACK", "DEFEND", "END_TURN", "ROLL_INITIATIVE", "SET_SEED"]);
 
 /**
  * Validate that a declared action has the correct shape.
@@ -56,6 +57,9 @@ function validateActionShape(action) {
     case "ATTACK":
       if (!action.attackerId) return [makeError(ErrorCode.INVALID_ACTION, "ATTACK requires attackerId")];
       if (!action.targetId) return [makeError(ErrorCode.INVALID_ACTION, "ATTACK requires targetId")];
+      break;
+    case "DEFEND":
+      if (!action.entityId) return [makeError(ErrorCode.INVALID_ACTION, "DEFEND requires entityId")];
       break;
     case "END_TURN":
       if (!action.entityId) return [makeError(ErrorCode.INVALID_ACTION, "END_TURN requires entityId")];
@@ -86,6 +90,7 @@ function validateTurnOrder(state, action) {
     let actingId = null;
     if (action.type === "MOVE") actingId = action.entityId;
     else if (action.type === "ATTACK") actingId = action.attackerId;
+    else if (action.type === "DEFEND") actingId = action.entityId;
 
     if (actingId && combat.activeEntityId !== actingId) {
       errors.push(makeError(ErrorCode.NOT_YOUR_TURN, `It is not "${actingId}"'s turn (active: "${combat.activeEntityId}")`));
@@ -130,6 +135,9 @@ function validateActionBudget(state, action) {
   if (action.type === "ATTACK" && budget.actionUsed >= 1) {
     return [makeError(ErrorCode.BUDGET_EXHAUSTED ?? "BUDGET_EXHAUSTED", "Action already used this turn")];
   }
+  if (action.type === "DEFEND" && budget.actionUsed >= 1) {
+    return [makeError(ErrorCode.BUDGET_EXHAUSTED ?? "BUDGET_EXHAUSTED", "Action already used this turn")];
+  }
   return [];
 }
 
@@ -143,6 +151,7 @@ function consumeBudget(state, action) {
   if (!state.combat.turnBudget) return;
   if (action.type === "MOVE") state.combat.turnBudget.movementUsed += 1;
   if (action.type === "ATTACK") state.combat.turnBudget.actionUsed += 1;
+  if (action.type === "DEFEND") state.combat.turnBudget.actionUsed += 1;
 }
 
 /**
@@ -191,6 +200,53 @@ function rejectAction(previousState, action, rawErrors) {
     success: false,
     errors: errorStrings,
   };
+}
+
+/**
+ * Apply DEFEND: entity takes a defensive posture, gaining +2 AC (dodging condition)
+ * for 1 round. Costs the entity's action for this turn.
+ *
+ * @param {object} state — cloned GameState (mutated in place)
+ * @param {{ type: "DEFEND"; entityId: string }} action
+ * @returns {{ ok: boolean, errors?: Array<{code:string,message:string}> }}
+ */
+function applyDefend(state, action) {
+  const { entityId } = action;
+
+  // Find entity
+  const allEntities = [
+    ...(state.entities?.players ?? []),
+    ...(state.entities?.npcs ?? []),
+  ];
+  const entity = allEntities.find((e) => e.id === entityId);
+  if (!entity) {
+    return { ok: false, errors: [makeError(ErrorCode.ENTITY_NOT_FOUND, `Entity "${entityId}" not found`)] };
+  }
+
+  // Dead check
+  if (entity.conditions.includes("dead")) {
+    return { ok: false, errors: [makeError(ErrorCode.DEAD_ENTITY, `Entity "${entityId}" is dead`)] };
+  }
+
+  // Apply "dodging" condition (+2 AC for 1 round)
+  applyCondition(entity, "dodging", 1);
+
+  // Log DEFEND_APPLIED event
+  const eventId = `evt-${(state.log.events.length + 1).toString().padStart(4, "0")}`;
+  state.log.events.push({
+    id: eventId,
+    timestamp: state.timestamp,
+    type: "DEFEND_APPLIED",
+    payload: {
+      entityId,
+      condition: "dodging",
+      acBonus: 2,
+      duration: 1,
+      effectiveAc: entity.stats.ac + 2,
+    },
+  });
+
+  return { ok: true, errors: [] };
 }
 
 /**
@@ -285,6 +341,9 @@ export function applyAction(previousState, declaredAction) {
       break;
     case "ATTACK":
       result = applyAttack(clone, declaredAction);
+      break;
+    case "DEFEND":
+      result = applyDefend(clone, declaredAction);
       break;
     case "ROLL_INITIATIVE":
       result = applyRollInitiative(clone);

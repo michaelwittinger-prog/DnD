@@ -337,14 +337,13 @@ function planUseAbility(state, subjectId, abilityRef, targetRef, allEntities) {
 }
 
 function planDefend(state, subjectId) {
-  // For now, defend = end turn (future: Dodge action)
-  const entityId = subjectId || state.combat.activeEntityId;
+  const entityId = subjectId || state.combat?.activeEntityId;
   if (!entityId) {
     return fail("No active entity to defend");
   }
   return ok(
-    [{ type: "END_TURN", entityId }],
-    `${entityId} takes a defensive posture (ends turn)`
+    [{ type: "DEFEND", entityId }],
+    `${entityId} takes a defensive posture (+2 AC until next turn)`
   );
 }
 
