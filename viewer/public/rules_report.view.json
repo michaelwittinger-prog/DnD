@@ -1,24 +1,6 @@
 {
   "ok": true,
   "violations": [],
-  "allowedOps": [
-    {
-      "op": "move_entity",
-      "entity_id": "pc-01",
-      "from": {
-        "x": 5,
-        "y": 6
-      },
-      "to": {
-        "x": 6,
-        "y": 6
-      }
-    },
-    {
-      "op": "set_hp",
-      "entity_id": "npc-02",
-      "current": 23
-    }
-  ],
+  "allowedOps": [],
   "failureGate": null
 }

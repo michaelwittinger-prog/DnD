@@ -10,7 +10,10 @@
  */
 
 import { applyAction } from "../engine/applyAction.mjs";
-import { executeIntent } from "../ai/intentExecutor.mjs";
+import { executeIntent, executePlan } from "../ai/intentExecutor.mjs";
+import { planFromIntent } from "../ai/intentPlanner.mjs";
+import { parseLLMIntent } from "../ai/llmIntentParser.mjs";
+import { createBrowserOpenAIAdapter, saveApiKey, loadApiKey, isApiKeyFormat } from "./browserOpenAIAdapter.mjs";
 import { explorationExample, demoEncounter } from "../state/exampleStates.mjs";
 import { stateHash } from "../replay/hash.mjs";
 import { renderGrid } from "./renderGrid.mjs";
@@ -26,6 +29,7 @@ import { computeVisibleCells } from "../engine/visibility.mjs";
 import { applyDifficultyToEntities, getDifficulty } from "../engine/difficulty.mjs";
 import { listPresets, PRESET_CHARACTERS } from "../content/characterCreator.mjs";
 import { listMapTemplates, buildScenario } from "../content/scenarioBuilder.mjs";
+import { generateEncounter } from "../content/encounterGenerator.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -413,31 +417,117 @@ const aiFeedbackEl = document.getElementById("ai-feedback");
 const aiDebugEl = document.getElementById("ai-debug");
 
 // ── AI Mode ─────────────────────────────────────────────────────────
-// "mock"  = instant keyword parser (always works, no API needed)
-// "intent" = synonym for mock (the full Parse → Plan → Execute pipeline)
-// The intent system IS the primary AI path. It uses the mock parser
-// for intent classification (instant), then plans and executes via engine.
+// "mock" = instant keyword parser (always works, no API needed)
+// "llm"  = LLM-powered parser (OpenAI, understands narrative language)
+//
+// Both use the same pipeline: Parse → Plan → Execute
+// The difference is HOW the intent is parsed from player text.
+// Mock: keyword matching (instant, offline)
+// LLM:  OpenAI API call → structured intent JSON (async, needs API key)
+// LLM automatically falls back to mock on any failure.
+
+let currentAiMode = "mock";    // "mock" or "llm"
+let llmAdapter = null;         // browser OpenAI adapter instance
+
+/**
+ * Get or create the LLM adapter using the current API key.
+ * Recreates if the key changed.
+ */
+function getLLMAdapter() {
+  const key = loadApiKey();
+  if (!key) return null;
+  // Recreate adapter if key changed
+  if (!llmAdapter || llmAdapter._apiKey !== key) {
+    llmAdapter = createBrowserOpenAIAdapter({ apiKey: key });
+    llmAdapter._apiKey = key; // track which key was used
+  }
+  return llmAdapter;
+}
 
 async function onAiPropose(playerInput) {
-  console.log(`[AI] Input: "${playerInput}"`);
+  console.log(`[AI] Input: "${playerInput}" mode: ${currentAiMode}`);
   showAiFeedback("⏳ Processing…", "pending");
 
-  // ── Intent System (Parse → Plan → Execute) ─────────────────────
-  const intentResult = executeIntent(gameState, playerInput);
-  const mode = "intent";
+  const t0 = Date.now();
 
-  if (aiDebugEl) {
-    aiDebugEl.textContent = JSON.stringify({
-      input: playerInput, ok: intentResult.ok,
-      intent: intentResult.intent?.type ?? null,
-      actionsExecuted: intentResult.actionsExecuted ?? 0,
-      narrationHint: intentResult.narrationHint ?? null,
-      error: intentResult.error ?? null,
-      durationMs: intentResult.durationMs,
-      mode,
-    }, null, 2);
+  if (currentAiMode === "llm") {
+    // ── LLM Path: parseLLMIntent → planFromIntent → executePlan ──
+    const adapter = getLLMAdapter();
+    if (!adapter) {
+      showAiFeedback("✗ No API key set — enter your OpenAI key above", "error");
+      addNarration("⚠ LLM mode requires an OpenAI API key", "error");
+      return;
+    }
+
+    showAiFeedback("⏳ Calling OpenAI…", "pending");
+
+    try {
+      const llmResult = await parseLLMIntent(playerInput, gameState, adapter);
+      const durationMs = Date.now() - t0;
+
+      // Plan from the parsed intent
+      const plan = planFromIntent(gameState, llmResult.intent);
+      const execResult = executePlan(gameState, plan);
+
+      const intentResult = {
+        ...execResult,
+        intent: llmResult.intent,
+        plan,
+        mode: llmResult.source, // "llm" or "mock" (if fallback)
+        durationMs,
+        llmLatencyMs: llmResult.latencyMs,
+        llmUsage: llmResult.usage,
+        llmError: llmResult.error,
+      };
+
+      if (aiDebugEl) {
+        aiDebugEl.textContent = JSON.stringify({
+          input: playerInput,
+          ok: intentResult.ok,
+          intent: intentResult.intent?.type ?? null,
+          source: llmResult.source,
+          actionsExecuted: intentResult.actionsExecuted ?? 0,
+          narrationHint: intentResult.narrationHint ?? null,
+          llmError: llmResult.error ?? null,
+          llmLatencyMs: llmResult.latencyMs,
+          llmUsage: llmResult.usage ?? null,
+          durationMs,
+          mode: `llm/${llmResult.source}`,
+        }, null, 2);
+      }
+
+      applyIntentResult(intentResult, playerInput, `llm/${llmResult.source}`);
+    } catch (err) {
+      // Total failure — shouldn't happen (parseLLMIntent has internal fallback)
+      showAiFeedback(`✗ LLM error: ${err.message}`, "error");
+      addNarration(`⚠ LLM error: ${err.message}`, "error");
+    }
+  } else {
+    // ── Mock Path: executeIntent (synchronous) ───────────────────
+    const intentResult = executeIntent(gameState, playerInput);
+    const mode = "mock";
+
+    if (aiDebugEl) {
+      aiDebugEl.textContent = JSON.stringify({
+        input: playerInput, ok: intentResult.ok,
+        intent: intentResult.intent?.type ?? null,
+        actionsExecuted: intentResult.actionsExecuted ?? 0,
+        narrationHint: intentResult.narrationHint ?? null,
+        error: intentResult.error ?? null,
+        durationMs: intentResult.durationMs,
+        mode,
+      }, null, 2);
+    }
+
+    applyIntentResult(intentResult, playerInput, mode);
   }
+}
 
+/**
+ * Apply the result of either mock or LLM intent processing to the UI.
+ * Shared code path for both modes.
+ */
+function applyIntentResult(intentResult, playerInput, mode) {
   if (!intentResult.ok) {
     showAiFeedback(`✗ ${intentResult.narrationHint || intentResult.error || "Could not understand"}`, "error");
     addNarration(`⚠ ${intentResult.narrationHint || intentResult.error || "Unknown command"}`, "error");
@@ -446,11 +536,11 @@ async function onAiPropose(playerInput) {
 
   // Intent system succeeded — update state and show results
   const prevState = gameState;
-  gameState = intentResult.state;
+  gameState = intentResult.state || intentResult.finalState;
   sessionActions.push(...(intentResult.actions || []));
 
   // Process events for visuals and narration
-  for (const evt of (intentResult.events || [])) {
+  for (const evt of (intentResult.events || intentResult.allEvents || [])) {
     processEventVisuals(evt, prevState);
     addNarration(narrateEvent(evt, gameState));
   }
@@ -470,7 +560,9 @@ async function onAiPropose(playerInput) {
     scheduleNpcTurn();
   }
 
-  showAiFeedback(`[${mode}] ✓ ${intentResult.intent?.type || "OK"} → ${intentResult.actionsExecuted} action(s) (${intentResult.durationMs}ms)`, "success");
+  const latencyInfo = intentResult.llmLatencyMs ? ` (LLM: ${intentResult.llmLatencyMs}ms)` : "";
+  const tokenInfo = intentResult.llmUsage?.totalTokens ? ` [${intentResult.llmUsage.totalTokens} tok]` : "";
+  showAiFeedback(`[${mode}] ✓ ${intentResult.intent?.type || "OK"} → ${intentResult.actionsExecuted ?? 0} action(s) (${intentResult.durationMs}ms)${latencyInfo}${tokenInfo}`, "success");
 }
 
 function showAiFeedback(msg, className) {
@@ -571,8 +663,91 @@ function updateIndicators() {
   }
 }
 
-// Set AI mode indicator — intent system is always active
-if (indAiModeEl) { indAiModeEl.dataset.mode = "intent"; indAiModeEl.textContent = "🤖 intent"; }
+// ── AI Mode Selector (P1 — LLM parser wiring) ──────────────────────────
+
+const aiModeSelectEl = document.getElementById("ai-mode-select");
+const aiApikeyRowEl = document.getElementById("ai-apikey-row");
+const aiApikeyInputEl = document.getElementById("ai-apikey-input");
+const aiApikeyStatusEl = document.getElementById("ai-apikey-status");
+
+function updateAiModeUI() {
+  const mode = currentAiMode;
+  // Show/hide API key row
+  if (aiApikeyRowEl) {
+    aiApikeyRowEl.style.display = mode === "llm" ? "flex" : "none";
+  }
+  // Update indicator badge
+  if (indAiModeEl) {
+    indAiModeEl.dataset.mode = mode;
+    indAiModeEl.textContent = mode === "llm" ? "🧠 LLM" : "🤖 mock";
+  }
+  // Update API key status
+  updateApiKeyStatus();
+  // Update placeholder text for AI input
+  const aiInput = document.getElementById("ai-input");
+  if (aiInput) {
+    aiInput.placeholder = mode === "llm"
+      ? 'e.g. "I cautiously approach the dark figure"'
+      : 'e.g. "attack the barkeep"';
+  }
+}
+
+function updateApiKeyStatus() {
+  if (!aiApikeyStatusEl) return;
+  const key = loadApiKey();
+  if (key && isApiKeyFormat(key)) {
+    aiApikeyStatusEl.textContent = "✓ key set";
+    aiApikeyStatusEl.className = "ok";
+  } else if (currentAiMode === "llm") {
+    aiApikeyStatusEl.textContent = "⚠ key needed";
+    aiApikeyStatusEl.className = "missing";
+  } else {
+    aiApikeyStatusEl.textContent = "";
+    aiApikeyStatusEl.className = "";
+  }
+}
+
+// Mode selector change
+aiModeSelectEl?.addEventListener("change", () => {
+  currentAiMode = aiModeSelectEl.value;
+  updateAiModeUI();
+  const label = currentAiMode === "llm" ? "LLM (OpenAI)" : "Mock (offline)";
+  addNarration(`🧠 AI parser switched to: ${label}`, "info");
+});
+
+// API key save button
+document.getElementById("btn-apikey-save")?.addEventListener("click", () => {
+  const key = aiApikeyInputEl?.value?.trim();
+  if (!key) return;
+  if (!isApiKeyFormat(key)) {
+    if (aiApikeyStatusEl) { aiApikeyStatusEl.textContent = "⚠ invalid format"; aiApikeyStatusEl.className = "missing"; }
+    return;
+  }
+  saveApiKey(key);
+  llmAdapter = null; // Force adapter recreation with new key
+  if (aiApikeyInputEl) aiApikeyInputEl.value = ""; // Clear input for security
+  updateApiKeyStatus();
+  addNarration("🔑 OpenAI API key saved (session only)", "info");
+});
+
+// Also save key on Enter
+aiApikeyInputEl?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    document.getElementById("btn-apikey-save")?.click();
+  }
+});
+
+// Restore saved key status on load
+{
+  const savedKey = loadApiKey();
+  if (savedKey && isApiKeyFormat(savedKey)) {
+    // Key exists in sessionStorage — don't show it, just indicate it's set
+    updateApiKeyStatus();
+  }
+}
+
+// Initialize AI mode UI
+updateAiModeUI();
 
 // ── Scenario Selector ───────────────────────────────────────────────
 
@@ -635,6 +810,42 @@ document.getElementById("btn-demo-encounter")?.addEventListener("click", () => {
   const preset = getDifficulty({ difficulty: diff });
   addNarration(`🎲 Demo encounter loaded (${preset.label}) — Roll Initiative to begin!`, "info");
   if (replayStatusEl) replayStatusEl.textContent = `✓ Demo loaded (${preset.label})`;
+});
+
+// ── Random Encounter (Tier 5.4 — Encounter Generator) ──────────────────
+
+document.getElementById("btn-random-encounter")?.addEventListener("click", () => {
+  const diff = getSelectedDifficulty();
+  const players = gameState.entities?.players ?? [];
+  const partySize = Math.max(1, players.filter(p => !p.conditions?.includes("dead")).length);
+  const gridSize = gameState.map?.grid?.size ?? { width: 10, height: 10 };
+  const playerPositions = players.map(p => p.position);
+
+  const encounter = generateEncounter({
+    partySize,
+    difficulty: diff,
+    gridSize,
+    playerPositions,
+    placement: "spread",
+  });
+
+  if (!encounter.entities || encounter.entities.length === 0) {
+    addNarration("⚠ Could not generate encounter — no monsters available", "error");
+    return;
+  }
+
+  // Replace current NPCs with the generated encounter
+  const newState = structuredClone(gameState);
+  newState.entities.npcs = encounter.entities;
+  newState.combat = { mode: "exploration", round: 0, initiativeOrder: [], activeEntityId: null };
+  newState.difficulty = diff;
+
+  loadState(newState);
+  const preset = getDifficulty({ difficulty: diff });
+  const monsterNames = encounter.entities.map(e => e.name).join(", ");
+  addNarration(`🎲 Random encounter generated (${preset.label}): ${encounter.entities.length} monsters — ${monsterNames}`, "info");
+  addNarration(`💰 XP budget: ${encounter.budget} (${encounter.template.name} template) — Roll Initiative to begin!`, "info");
+  if (replayStatusEl) replayStatusEl.textContent = `✓ Random encounter (${preset.label}, ${encounter.entities.length} monsters)`;
 });
 
 // ── Custom Encounter Builder (Tier 6.2 + 6.4) ──────────────────────────

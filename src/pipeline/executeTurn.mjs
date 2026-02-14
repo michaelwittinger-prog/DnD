@@ -169,10 +169,12 @@ export async function executeTurn(opts = {}) {
       meta.gatekeeperResult = "passed";
     } catch (err) {
       const out = (err.stdout || "") + (err.stderr || "");
-      if (out.includes("[1/5]") && out.includes("FAIL")) meta.failureGate = "ai_schema";
-      else if (out.includes("[3/5]") && out.includes("FAIL")) meta.failureGate = "schema_version";
-      else if (out.includes("[4/5]") && out.includes("FAIL")) meta.failureGate = "state_schema";
-      else if (out.includes("[5/5]") && out.includes("FAIL")) meta.failureGate = "invariants";
+      // Check each gate line for FAIL (must be on the same line)
+      if (/\[1\/5\].*FAIL/.test(out)) meta.failureGate = "ai_schema";
+      else if (/\[2\/5\].*FAIL/.test(out)) meta.failureGate = "rules";
+      else if (/\[3\/5\].*FAIL/.test(out)) meta.failureGate = "schema_version";
+      else if (/\[4\/5\].*FAIL/.test(out)) meta.failureGate = "state_schema";
+      else if (/\[5\/5\].*FAIL/.test(out)) meta.failureGate = "invariants";
       else meta.failureGate = "unknown";
 
       meta.gatekeeperResult = "failed";

@@ -13,6 +13,8 @@
 
 import { applyAction } from "./applyAction.mjs";
 import { planNpcTurn, isNpcTurn } from "./npcTurnStrategy.mjs";
+import { planMultiActionTurn } from "./multiActionTurn.mjs";
+import { getDifficulty } from "./difficulty.mjs";
 import { narrateEvent } from "./narrateEvent.mjs";
 
 /**
@@ -24,7 +26,16 @@ import { narrateEvent } from "./narrateEvent.mjs";
  * @returns {{ state: object, events: object[], narration: string[], success: boolean, errors: string[] }}
  */
 export function executeNpcTurn(state, entityId) {
-  const plan = planNpcTurn(state, entityId);
+  // Use multi-action planner for richer NPC turns (move + action + bonus)
+  // Falls back to simple strategy for NPCs without abilities
+  const npc = [...(state.entities?.npcs ?? [])].find(e => e.id === entityId);
+  const hasAbilities = npc?.abilities?.length > 0;
+  const difficultyLevel = state.difficulty || "normal";
+  const difficultyPreset = getDifficulty({ difficulty: difficultyLevel });
+
+  const plan = hasAbilities
+    ? planMultiActionTurn(state, entityId, { difficulty: difficultyPreset })
+    : planNpcTurn(state, entityId);
   const allEvents = [];
   const allNarration = [];
   let currentState = state;

@@ -633,6 +633,25 @@ export function evaluateProposal({ state, aiResponse }) {
       case "end_turn":
         allViolations.push(...checkEndTurnCombat(op, i, state));
         break;
+      case "add_condition": {
+        const ent = findEntity(state, op.entity_id);
+        if (!ent) allViolations.push(violation(V.UNKNOWN_ENTITY_ID, `Entity "${op.entity_id}" not found for add_condition.`, `state_updates[${i}]`));
+        if (!op.condition) allViolations.push(violation("MISSING_CONDITION", `add_condition requires a condition string.`, `state_updates[${i}]`));
+        break;
+      }
+      case "remove_condition": {
+        const ent = findEntity(state, op.entity_id);
+        if (!ent) allViolations.push(violation(V.UNKNOWN_ENTITY_ID, `Entity "${op.entity_id}" not found for remove_condition.`, `state_updates[${i}]`));
+        break;
+      }
+      case "set_active_entity": {
+        const ent = findEntity(state, op.entity_id);
+        if (!ent) allViolations.push(violation(V.UNKNOWN_ENTITY_ID, `Entity "${op.entity_id}" not found for set_active_entity.`, `state_updates[${i}]`));
+        break;
+      }
+      case "update_summary":
+        // Always allowed — just a narrative summary update
+        break;
       default:
         allViolations.push(violation(
           V.UNKNOWN_STATE_OP,

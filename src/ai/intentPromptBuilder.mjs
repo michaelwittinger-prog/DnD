@@ -10,6 +10,7 @@
  */
 
 import { INTENT_TYPES, DIRECTIONS, TARGET_SELECTORS } from "./intentTypes.mjs";
+import { buildFullContext } from "./memoryContext.mjs";
 
 // ── State Summarizer ────────────────────────────────────────────────────
 
@@ -152,7 +153,14 @@ RULES:
  */
 export function buildIntentUserPrompt(playerInput, state) {
   const summary = summarizeStateForParsing(state);
-  return `GAME STATE:\n${summary}\n\nPLAYER INPUT: "${playerInput}"\n\nRespond with a single JSON intent object.`;
+
+  // Enrich with memory context (recent events, narrative beats) when log exists
+  const hasHistory = state?.log?.events?.length > 0;
+  const memorySection = hasHistory
+    ? `\n\nRECENT HISTORY:\n${buildFullContext(state, { maxEvents: 5, maxBeats: 3 })}`
+    : "";
+
+  return `GAME STATE:\n${summary}${memorySection}\n\nPLAYER INPUT: "${playerInput}"\n\nRespond with a single JSON intent object.`;
 }
 
 /**

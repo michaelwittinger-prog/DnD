@@ -57,6 +57,18 @@ export function applyAiResponse({ state, aiResponse }) {
       case "end_turn":
         applyEndTurnOp(next, op);
         break;
+      case "add_condition":
+        applyAddCondition(next, op);
+        break;
+      case "remove_condition":
+        applyRemoveCondition(next, op);
+        break;
+      case "set_active_entity":
+        applySetActiveEntity(next, op);
+        break;
+      case "update_summary":
+        applyUpdateSummary(next, op);
+        break;
       default:
         console.warn(`[applyAiResponse] skipping unsupported state op: ${op.op}`);
     }
@@ -174,4 +186,53 @@ function applyEndTurnOp(state, op) {
   }
 
   state.combat.active_index = nextIdx;
+}
+
+/**
+ * add_condition — Adds a condition string to an entity's conditions array.
+ */
+function applyAddCondition(state, op) {
+  const entity = findEntity(state, op.entity_id);
+  if (!entity) {
+    console.warn(`[add_condition] entity not found: ${op.entity_id}`);
+    return;
+  }
+  if (!entity.conditions) entity.conditions = [];
+  if (!entity.conditions.includes(op.condition)) {
+    entity.conditions.push(op.condition);
+  }
+}
+
+/**
+ * remove_condition — Removes a condition string from an entity's conditions array.
+ */
+function applyRemoveCondition(state, op) {
+  const entity = findEntity(state, op.entity_id);
+  if (!entity) {
+    console.warn(`[remove_condition] entity not found: ${op.entity_id}`);
+    return;
+  }
+  if (!entity.conditions) return;
+  entity.conditions = entity.conditions.filter((c) => c !== op.condition);
+}
+
+/**
+ * set_active_entity — Sets which entity is currently active (e.g. for turn focus).
+ */
+function applySetActiveEntity(state, op) {
+  if (!state.combat) state.combat = {};
+  // Find the index in initiative_order, or just store active_entity_id
+  if (state.combat.initiative_order) {
+    const idx = state.combat.initiative_order.indexOf(op.entity_id);
+    if (idx !== -1) state.combat.active_index = idx;
+  }
+  state.combat.active_entity_id = op.entity_id;
+}
+
+/**
+ * update_summary — Updates the session/narrative summary text.
+ */
+function applyUpdateSummary(state, op) {
+  if (!state.session) state.session = {};
+  state.session.summary = op.summary || op.text || "";
 }

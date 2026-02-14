@@ -1,6 +1,6 @@
 {
-  "narration": "Seren steps one square east, approaching the fountain.",
-  "adjudication": "Movement: 1 square east. No obstacles.",
+  "narration": "Seren steps one square east, approaching the fountain, and strikes Captain Voss with her longsword.",
+  "adjudication": "Movement: 1 square east. Attack roll: 18 vs AC 14 = hit. Damage: 7.",
   "map_updates": [
     {
       "op": "move_entity",
@@ -13,7 +13,13 @@
     {
       "op": "set_hp",
       "entity_id": "npc-02",
-      "current": 23
+      "current": 16
+    },
+    {
+      "op": "advance_turn",
+      "round": 1,
+      "turn_index": 13,
+      "active_entity_id": "pc-01"
     }
   ],
   "questions": []

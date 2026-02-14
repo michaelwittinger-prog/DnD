@@ -15,8 +15,13 @@ const ROOT = join(__dirname, "..", "..");
 // ── Load static assets once ────────────────────────────────────────────
 const systemPrompt = readFileSync(join(ROOT, "ai_gm", "system_prompt.md"), "utf-8");
 const rulesIndex = readFileSync(join(ROOT, "ai_gm", "rules_index.json"), "utf-8");
-const rawSchema = JSON.parse(
-  readFileSync(join(ROOT, "ai_gm_response.schema.json"), "utf-8")
+
+// Use the pre-built, CI-validated OpenAI strict-mode schema.
+// This schema is hand-crafted and validated by tests/openai_schema_test.mjs
+// to guarantee 100% compliance with OpenAI structured-output strict mode.
+// No runtime transformation needed.
+const openAiSchema = JSON.parse(
+  readFileSync(join(ROOT, "shared", "schemas", "aiResponse.openai.strict.json"), "utf-8")
 );
 
 // ── Model selection ────────────────────────────────────────────────────
@@ -24,55 +29,6 @@ const DEFAULT_MODEL = "gpt-4o";
 function getModel() {
   return process.env.OPENAI_MODEL || DEFAULT_MODEL;
 }
-
-// ── Schema transform for OpenAI structured output ──────────────────────
-/**
- * Transforms the JSON-Schema so it is accepted by OpenAI's structured-output
- * endpoint (strict mode).  Key changes:
- *   • Remove $schema / $id (not allowed)
- *   • oneOf  → anyOf
- *   • Every object gets all properties in "required"
- *   • additionalProperties that carry a sub-schema → false
- */
-function transformForOpenAI(schema) {
-  const s = JSON.parse(JSON.stringify(schema)); // deep clone
-  delete s.$schema;
-  delete s.$id;
-  return walk(s);
-}
-
-function walk(node) {
-  if (typeof node !== "object" || node === null) return node;
-  if (Array.isArray(node)) return node.map(walk);
-
-  const out = {};
-  for (const [k, v] of Object.entries(node)) {
-    if (k === "oneOf") {
-      out.anyOf = walk(v);
-    } else {
-      out[k] = walk(v);
-    }
-  }
-
-  // Ensure all object properties are listed in required (strict-mode rule)
-  if (out.type === "object" && out.properties) {
-    out.required = Object.keys(out.properties);
-    // If additionalProperties is a schema object (not boolean), force false
-    if (
-      typeof out.additionalProperties === "object" &&
-      out.additionalProperties !== null
-    ) {
-      out.additionalProperties = false;
-    }
-    if (out.additionalProperties === undefined) {
-      out.additionalProperties = false;
-    }
-  }
-
-  return out;
-}
-
-const openAiSchema = transformForOpenAI(rawSchema);
 
 // ── Prompt assembly (per prompt_builder.md) ────────────────────────────
 function buildPrompt(state, playerInput) {

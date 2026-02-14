@@ -56,10 +56,16 @@
       "id": "pc-01",
       "name": "Seren",
       "type": "player",
+      "role": "pc",
       "stats": {
         "hp": 24,
-        "ac": 16
+        "maxHp": 24,
+        "ac": 16,
+        "speed": 6,
+        "attack_bonus": 5,
+        "damage": "1d8+3"
       },
+      "conditions": [],
       "position": {
         "x": 5,
         "y": 6
@@ -69,9 +75,17 @@
       "id": "npc-02",
       "name": "Captain Voss",
       "type": "npc",
+      "role": "enemy",
       "stats": {
+        "hp": 23,
+        "maxHp": 23,
+        "ac": 14,
+        "speed": 6,
+        "attack_bonus": 4,
+        "damage": "1d6+2",
         "faction": "Raven Guard"
       },
+      "conditions": [],
       "position": {
         "x": 7,
         "y": 6

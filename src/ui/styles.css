@@ -343,6 +343,78 @@ body {
   font-size: 0.8rem;
 }
 
+.ai-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.ai-mode-row label {
+  font-size: 0.75rem;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.ai-mode-row select {
+  flex: 1;
+  padding: 0.3rem;
+  font-size: 0.75rem;
+  background: #1a1a3e;
+  color: #ddd;
+  border: 1px solid #444;
+  border-radius: 3px;
+}
+
+.ai-mode-row select option[value="llm"] {
+  color: #c0a0ff;
+}
+
+.ai-apikey-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.4rem;
+  animation: narration-fade-in 0.2s ease;
+}
+
+.ai-apikey-row input {
+  flex: 1;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.72rem;
+  border: 1px solid #4a3a6e;
+  border-radius: 3px;
+  background: #1a1a3e;
+  color: #c0a0ff;
+  font-family: "Consolas", "Fira Code", monospace;
+}
+
+.ai-apikey-row input::placeholder {
+  color: #555;
+}
+
+.ai-apikey-row button {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  border: 1px solid #4a3a6e;
+  border-radius: 3px;
+  background: #2a1a4e;
+  color: #ddd;
+  cursor: pointer;
+}
+
+.ai-apikey-row button:hover {
+  background: #3a2a6e;
+}
+
+#ai-apikey-status {
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+#ai-apikey-status.ok { color: #6f6; }
+#ai-apikey-status.missing { color: #f66; }
+
 .ai-controls {
   display: flex;
   gap: 0.3rem;

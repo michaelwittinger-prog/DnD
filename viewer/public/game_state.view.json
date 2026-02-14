@@ -2,7 +2,7 @@
   "meta": {
     "schemaVersion": "1.0.0",
     "createdAt": "2026-02-10T20:00:00Z",
-    "updatedAt": "2026-02-11T11:15:03.519Z",
+    "updatedAt": "2026-02-13T14:32:49.198Z",
     "source": "example"
   },
   "session": {
@@ -74,12 +74,18 @@
       "id": "pc-01",
       "name": "Seren",
       "type": "player",
+      "role": "pc",
       "stats": {
         "hp": 24,
-        "ac": 16
+        "maxHp": 24,
+        "ac": 16,
+        "speed": 6,
+        "attack_bonus": 5,
+        "damage": "1d8+3"
       },
+      "conditions": [],
       "position": {
-        "x": 6,
+        "x": 5,
         "y": 6
       }
     },
@@ -87,10 +93,17 @@
       "id": "npc-02",
       "name": "Captain Voss",
       "type": "npc",
+      "role": "enemy",
       "stats": {
-        "faction": "Raven Guard",
-        "hp": 23
+        "hp": 23,
+        "maxHp": 23,
+        "ac": 14,
+        "speed": 6,
+        "attack_bonus": 4,
+        "damage": "1d6+2",
+        "faction": "Raven Guard"
       },
+      "conditions": [],
       "position": {
         "x": 7,
         "y": 6
@@ -142,5 +155,16 @@
       "level": "info",
       "timestamp": "2026-02-10T20:20:00Z"
     }
-  ]
+  ],
+  "combat": {
+    "active": true,
+    "combat_id": "combat-1770992630176",
+    "round": 1,
+    "initiative_order": [
+      "npc-02",
+      "pc-01"
+    ],
+    "active_index": 0,
+    "started_at_iso": "2026-02-13T14:23:50.176Z"
+  }
 }

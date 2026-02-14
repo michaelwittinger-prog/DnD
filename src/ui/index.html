@@ -48,6 +48,7 @@
               </select>
             </div>
             <button id="btn-demo-encounter" class="btn-primary">⚔ Start Demo Encounter</button>
+            <button id="btn-random-encounter" class="btn-secondary">🎲 Random Encounter</button>
 
             <details id="create-encounter-panel" class="create-encounter">
               <summary class="btn-create-toggle">🛠 Create Custom Encounter</summary>
@@ -106,6 +107,18 @@
 
         <section id="section-ai">
           <h2>AI Command</h2>
+          <div class="ai-mode-row">
+            <label for="ai-mode-select">🧠 Parser:</label>
+            <select id="ai-mode-select">
+              <option value="mock" selected>Mock (instant, offline)</option>
+              <option value="llm">LLM (OpenAI, narrative)</option>
+            </select>
+          </div>
+          <div id="ai-apikey-row" class="ai-apikey-row" style="display:none;">
+            <input id="ai-apikey-input" type="password" placeholder="sk-… OpenAI API key" autocomplete="off" />
+            <button id="btn-apikey-save" title="Save key to session">💾</button>
+            <span id="ai-apikey-status"></span>
+          </div>
           <div class="ai-controls">
             <input id="ai-input" type="text" placeholder="e.g. &quot;attack the barkeep&quot;" />
             <button id="btn-ai-propose">🤖 Propose</button>

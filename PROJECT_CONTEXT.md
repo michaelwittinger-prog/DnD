@@ -47,10 +47,28 @@ It operates strictly on explicit state and machine readable contracts.
 
 ## Architecture
 
+> **⚠️ CRITICAL: Two-Universe Consolidation (Session 20, 2026-02-14)**
+> See `docs/implementation_report.md` for the full diagnosis and decision log.
+
+### Canonical Architecture (Post-Consolidation)
+
+**Engine state (`src/engine/`) is the single source of truth.**
+Pipeline state (`src/pipeline/`) is demoted to a derived audit format.
+
+```
+Click in src/ui/ → POST /action → applyAction(engineState) → persist → re-render
+LLM text input  → POST /turn  → executeTurn() → proposalToActions() → applyAction(engineState) → persist
+GET /state      → loadEngineState() → canonical engine state JSON
+```
+
 ### Components
 
-- Client: React + TypeScript
-- Server: Node.js + TypeScript
+- Primary UI: `src/ui/` (vanilla JS, canvas, port 3001) — has click-to-move, click-to-attack, NPC AI, combat, all gameplay
+- API Server: `src/server/localApiServer.mjs` (Node.js, port 3030) — serves engine state + accepts actions
+- Engine: `src/engine/` (17 modules, 1181+ tests) — ALL game logic
+- Pipeline: `src/pipeline/` — LLM integration, rules validation, turn bundles (audit)
+- Debug Viewer: `viewer/` (React, port 5174) — turn bundle inspector only
+- **DEPRECATED:** `client/` — dead code, non-functional, different state shape
 - AI GM: Stateless, schema bound
 
 ### The AI receives
@@ -247,13 +265,23 @@ Viewer UI → POST /api/turn → localApiServer.mjs → executeTurn() → gateke
 - `src/server/localApiServer.mjs` — Native Node.js HTTP server, port 3030
 - `scripts/run-dev.mjs` — Parallel launcher for API + viewer
 
-### API endpoints
+### API endpoints (localApiServer.mjs, port 3030)
 
 | Method | Path | Description |
 |--------|---------|-------------|
 | GET | /health | Health check |
-| POST | /turn | Execute turn with intent from body |
-| GET | /latest | Latest state, AI response, rules report |
+| GET | /state | **Canonical engine state** (bootstraps on first call) |
+| POST | /action | **Direct engine action** (click-to-move/attack, no LLM) |
+| POST | /turn | Execute LLM pipeline turn with intent from body |
+| GET | /latest | Latest pipeline state, AI response, rules report |
+| POST | /replay | Replay a turn bundle |
+
+### Key bridge files (Session 20)
+
+- `src/pipeline/proposalToActions.mjs` — One-way translator: AI ops → engine DeclaredActions
+- `src/state/bootstrapState.mjs` — One-time pipeline→engine state converter
+- `docs/implementation_report.md` — Full architecture decision log + field mapping
+- `out/engine_state.canonical.json` — Persisted canonical engine state
 
 ### Viewer Intent Panel
 
@@ -380,6 +408,8 @@ After every task completion:
 - Tier 5.5: complete (model adapter: registry, mock/OpenAI/local factories — 1134 tests)
 - Tier 6.3: complete (monster manual: 14 templates, 4 CR tiers, instantiation — 1134 tests)
 - Sprint 3: COMPLETE — S3.1 ✅ S3.2 ✅ S3.3 ✅ S3.4 ✅ S3.5 ✅ S3.6 ✅ (1181 tests)
+- P1: COMPLETE — LLM parser wired into UI (mode toggle mock/LLM, browser OpenAI adapter, API key management, 15 tests)
+- **Session 20: COMPLETE — Architecture Consolidation** (two-universe bridge, proposal translator, bootstrap converter, /state + /action API endpoints, implementation report — 26 new tests, 0 regressions)
 
 ## Phase S2 — Persistence
 

@@ -42,7 +42,8 @@
         "players": {
           "type": "array",
           "items": { "type": "string" }
-        }
+        },
+        "summary": { "type": "string" }
       }
     },
     "ruleset": {
@@ -142,9 +143,14 @@
           "id": { "type": "string" },
           "name": { "type": "string" },
           "type": { "type": "string" },
+          "role": { "type": "string" },
           "stats": {
             "type": "object",
             "additionalProperties": true
+          },
+          "conditions": {
+            "type": "array",
+            "items": { "type": "string" }
           },
           "position": {
             "type": "object",

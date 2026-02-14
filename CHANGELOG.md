@@ -1,5 +1,73 @@
 # Changelog
 
+## 2026-02-14 — Session 20: Architecture Consolidation (Two-Universe Bridge)
+
+**Tests:** 1600 + 26 new (proposal translator + bootstrap) | **Status:** Systemic stability
+
+### Problem Diagnosed
+The codebase contained **two independent game engines** operating on **incompatible state schemas** — the "engine" (Universe 1: `src/engine/` + `src/ui/`, 17 modules, 1181+ tests) and the "pipeline" (Universe 2: `src/pipeline/` + `viewer/`, LLM integration). They had different entity shapes (`entities.players[]` vs flat `entities[]`), different field names (`stats.hpCurrent` vs `stats.hp`), different combat models (`combat.mode` vs `combat.active`), and no bridge between them.
+
+### Architecture Decision
+**Engine state is now the canonical source of truth.** Pipeline state is demoted to a derived audit format. All gameplay transitions go through `applyAction()`. LLM proposals are translated one-way into engine DeclaredActions.
+
+### Built
+- **Implementation Report** (`docs/implementation_report.md`) — Living document with: two-universe diagnosis, canonical architecture decision, field mapping reference (15 field pairs), AI op → engine action mapping (10 ops), failed approaches log, risk log, file inventory
+- **Proposal Translator** (`src/pipeline/proposalToActions.mjs`) — One-way translator: AI response ops → engine DeclaredActions. Handles `move_entity` (with A* pathfinding), `start_combat` → ROLL_INITIATIVE, `end_turn`/`advance_turn` → END_TURN. Skips narration-only ops (`set_hp`, `spawn_entity`, `add_event_log`). Produces warnings for unreachable paths, unknown entities, already-active combat.
+- **Bootstrap Converter** (`src/state/bootstrapState.mjs`) — One-time pipeline→engine state converter. Maps flat entities to categorized players/npcs/objects, converts field names, terrain types, combat state, RNG. Runs once on first server boot.
+- **GET /state endpoint** — Returns canonical engine state (bootstraps from `game_state.example.json` on first call). Persists to `out/engine_state.canonical.json`.
+- **POST /action endpoint** — Applies a DeclaredAction directly to engine state via `applyAction()`. Supports MOVE, ATTACK, END_TURN, ROLL_INITIATIVE, USE_ABILITY, SET_SEED. Persists state on success, returns errors on rejection. This is the **click-to-move/attack** API path (no LLM needed).
+- **Server banner updated** — Shows all 6 endpoints with descriptions
+
+### Test Results
+- **26 new tests** (`tests/proposal_translator_test.mjs`): 9 bootstrap tests + 12 translator tests with engine states + 4 translator tests with bootstrapped state + real fixtures
+- **15 existing e2e pipeline tests**: all still pass (zero regressions)
+- **Total: 41/41 pass**
+
+### Files Changed
+- `docs/implementation_report.md` — NEW (canonical architecture document)
+- `src/pipeline/proposalToActions.mjs` — NEW (one-way AI→engine translator)
+- `src/state/bootstrapState.mjs` — NEW (pipeline→engine state converter)
+- `tests/proposal_translator_test.mjs` — NEW (26 tests)
+- `src/server/localApiServer.mjs` — Added /state, /action endpoints + engine state persistence
+- `CHANGELOG.md` — This entry
+- `PROJECT_CONTEXT.md` — Updated architecture section
+
+### Architecture After This Session
+```
+Click in src/ui/ → POST /action → applyAction(engineState) → persist → re-render
+LLM text input  → POST /turn  → executeTurn() → proposalToActions() → applyAction(engineState) → persist
+GET /state      → loadEngineState() → canonical engine state JSON
+```
+
+### Front-End Decision
+| Front-end | Status | Reason |
+|-----------|--------|--------|
+| `src/ui/` (port 3001) | **PRIMARY** | All gameplay features |
+| `viewer/` (port 5174) | **DEBUG ONLY** | Turn bundle inspector |
+| `client/` (port 5173) | **DEPRECATED** | Dead code |
+
+---
+
+## P1 — LLM Parser Wiring (UI Integration)
+
+### Added
+- **AI Mode Selector** — UI dropdown (`Mock` / `LLM OpenAI`) in the AI Command section
+- **Browser OpenAI Adapter** (`src/ui/browserOpenAIAdapter.mjs`) — fetch-based adapter for calling OpenAI directly from the browser (no Node.js SDK)
+- **API Key Management** — input field + sessionStorage persistence for OpenAI keys (cleared on tab close)
+- **Dual-mode `onAiPropose()`** — routes player input through mock (instant, offline) or LLM (async, OpenAI API) parser based on selected mode
+- **LLM → Plan → Execute pipeline** — `parseLLMIntent()` → `planFromIntent()` → `executePlan()` fully wired in `main.mjs`
+- **Graceful fallback** — LLM failures automatically fall back to mock parser with error annotation in debug panel
+- **Debug panel enhancements** — shows LLM latency, token usage, source (llm/mock), and fallback reason
+- **Indicator badge** — updates to "🧠 LLM" or "🤖 mock" based on selected mode
+- **15 new integration tests** (`tests/llm_wiring_test.mjs`) covering adapter shape, full pipeline, fallback behavior, mode switching, and UI field compatibility
+
+### Files Changed
+- `src/ui/index.html` — AI mode selector + API key row
+- `src/ui/styles.css` — new CSS for mode selector, API key input
+- `src/ui/main.mjs` — dual-mode onAiPropose, applyIntentResult, AI mode DOM wiring
+- `src/ui/browserOpenAIAdapter.mjs` — new file (browser fetch adapter)
+- `tests/llm_wiring_test.mjs` — new test file
+
 > Chronological record of all development sessions. Updated after each task.
 > Convention: newest entries at the top.
 

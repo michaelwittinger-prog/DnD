@@ -1,26 +1,74 @@
 #!/usr/bin/env node
+// Load .env file FIRST — before any other imports read process.env
+import "../core/loadEnv.mjs";
+
 /**
  * localApiServer — Minimal local API for the viewer UI.
  *
  * Endpoints:
  *   GET  /health   → { ok, version, port }
- *   POST /turn     → execute a turn (intent from body)
- *   GET  /latest   → latest state, AI response, rules report
+ *   GET  /state    → canonical engine state (bootstraps on first call)
+ *   POST /action   → apply a DeclaredAction directly to engine state
+ *   POST /turn     → execute a turn (LLM pipeline, intent from body)
+ *   GET  /latest   → latest pipeline state, AI response, rules report
  *   POST /replay   → replay a turn bundle
  *
  * Port: env PORT or 3030
  * Listens on 127.0.0.1 only (IPv4).
  */
 import http from "http";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { randomBytes } from "crypto";
 import { execSync } from "child_process";
 import { executeTurn, ROOT } from "../pipeline/executeTurn.mjs";
+import { preflight } from "../core/envCheck.mjs";
+import { bootstrapEngineState } from "../state/bootstrapState.mjs";
+import { applyAction } from "../engine/applyAction.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "3030", 10);
+
+// ── Engine State Persistence ───────────────────────────────────────────
+// Engine state is the canonical source of truth (see docs/implementation_report.md).
+// It persists as out/engine_state.canonical.json.
+// On first boot, it's bootstrapped from game_state.example.json.
+
+const ENGINE_STATE_PATH = resolve(ROOT, "out", "engine_state.canonical.json");
+
+function loadEngineState() {
+  if (existsSync(ENGINE_STATE_PATH)) {
+    return JSON.parse(readFileSync(ENGINE_STATE_PATH, "utf-8"));
+  }
+  // Bootstrap from pipeline state on first boot
+  console.log("  [engine] No canonical state found. Bootstrapping from game_state.example.json...");
+  const pipelineState = JSON.parse(readFileSync(resolve(ROOT, "game_state.example.json"), "utf-8"));
+  const engineState = bootstrapEngineState(pipelineState);
+  saveEngineState(engineState);
+  console.log("  [engine] Canonical engine state created.");
+  return engineState;
+}
+
+function saveEngineState(state) {
+  mkdirSync(resolve(ROOT, "out"), { recursive: true });
+  writeFileSync(ENGINE_STATE_PATH, JSON.stringify(state, null, 2), "utf-8");
+}
+
+// ── Preflight Check ────────────────────────────────────────────────────
+{
+  const check = preflight({ rootDir: ROOT });
+  if (!check.ok) {
+    console.error("\n" + check.report + "\n");
+    process.exit(1);
+  }
+  // Print warnings even if ok
+  if (check.result.warnings.length > 0) {
+    for (const w of check.result.warnings) {
+      console.log(`  [preflight] ${w}`);
+    }
+  }
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -137,10 +185,25 @@ async function handleTurn(req, res) {
   console.log(`[${requestId}] POST /turn intent: ${JSON.stringify(intent).slice(0, 80)}...`);
   if (fixturePath) console.log(`  fixture: ${useFixture}`);
 
+  // ── Resolve state path (chain turns) ──────────────────────────
+  // If no explicit statePath from the request, use the latest output
+  // from a previous turn (enables multi-turn chaining). Fall back to
+  // the example state for the very first turn.
+  let resolvedStatePath;
+  if (statePath) {
+    resolvedStatePath = resolve(ROOT, statePath);
+  } else {
+    const latestState = resolve(ROOT, "out", "game_state.latest.json");
+    resolvedStatePath = existsSync(latestState)
+      ? latestState
+      : resolve(ROOT, "game_state.example.json");
+  }
+  console.log(`  state: ${resolvedStatePath}`);
+
   // ── Execute turn ──────────────────────────────────────────────
   try {
     const result = await executeTurn({
-      statePath: statePath ? resolve(ROOT, statePath) : undefined,
+      statePath: resolvedStatePath,
       intentObject: intent,
       seed: seed !== undefined ? Number(seed) : undefined,
       fixturePath,
@@ -180,11 +243,76 @@ async function handleTurn(req, res) {
 
 async function handleLatest(_req, res) {
   const outDir = resolve(ROOT, "out");
+  // Return the latest state from a previous turn, or fall back to the
+  // example state so the viewer always has something to render.
+  const latestState = readJsonFile(resolve(outDir, "game_state.latest.json"));
+  const gameState = latestState || readJsonFile(resolve(ROOT, "game_state.example.json"));
   json(res, 200, {
-    gameState: readJsonFile(resolve(outDir, "game_state.latest.json")),
+    gameState,
     aiResponse: readJsonFile(resolve(outDir, "ai_response.latest.json")),
     rulesReport: readJsonFile(resolve(outDir, "rules_report.latest.json")),
   });
+}
+
+async function handleState(_req, res) {
+  try {
+    const engineState = loadEngineState();
+    json(res, 200, { ok: true, state: engineState });
+  } catch (err) {
+    json(res, 500, { ok: false, error: err.message });
+  }
+}
+
+async function handleAction(req, res) {
+  const requestId = generateRequestId();
+
+  let body;
+  try {
+    body = await readBody(req);
+  } catch (e) {
+    return json(res, 400, { ok: false, error: "INVALID_REQUEST", message: e.message, requestId });
+  }
+
+  // Body must be a DeclaredAction: { type: "MOVE"|"ATTACK"|"END_TURN"|"ROLL_INITIATIVE", ... }
+  if (!body || !body.type) {
+    return json(res, 400, {
+      ok: false,
+      error: "INVALID_REQUEST",
+      message: "Missing required field: type (MOVE, ATTACK, END_TURN, ROLL_INITIATIVE, USE_ABILITY, SET_SEED).",
+      requestId,
+    });
+  }
+
+  console.log(`[${requestId}] POST /action type: ${body.type} ${body.entityId || ""}`);
+
+  try {
+    const currentState = loadEngineState();
+    const result = applyAction(currentState, body);
+
+    if (result.success !== false) {
+      // Success — persist the new state
+      saveEngineState(result.nextState);
+      console.log(`  [${requestId}] → OK | events: ${(result.events || []).length}`);
+      json(res, 200, {
+        ok: true,
+        requestId,
+        events: result.events || [],
+        state: result.nextState,
+      });
+    } else {
+      // Engine returned errors (array of strings or error objects)
+      const errorMessages = (result.errors || []).map(e => typeof e === "string" ? e : (e.message || e.code || String(e)));
+      console.log(`  [${requestId}] → REJECTED | ${errorMessages.join(", ")}`);
+      json(res, 200, {
+        ok: false,
+        requestId,
+        errors: result.errors || [],
+      });
+    }
+  } catch (err) {
+    console.error(`  [${requestId}] → ERROR:`, err.message);
+    json(res, 500, { ok: false, error: err.message, requestId });
+  }
 }
 
 async function handleReplay(req, res) {
@@ -267,6 +395,8 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (path === "/health" && req.method === "GET") return await handleHealth(req, res);
+    if (path === "/state" && req.method === "GET") return await handleState(req, res);
+    if (path === "/action" && req.method === "POST") return await handleAction(req, res);
     if (path === "/turn" && req.method === "POST") return await handleTurn(req, res);
     if (path === "/latest" && req.method === "GET") return await handleLatest(req, res);
     if (path === "/replay" && req.method === "POST") return await handleReplay(req, res);
@@ -304,8 +434,10 @@ server.listen(PORT, "127.0.0.1", () => {
   console.log("╚══════════════════════════════════════╝");
   console.log(`  API listening on http://127.0.0.1:${PORT}`);
   console.log(`  GET  /health`);
-  console.log(`  POST /turn`);
-  console.log(`  GET  /latest`);
+  console.log(`  GET  /state    ← canonical engine state`);
+  console.log(`  POST /action   ← direct engine action (click-to-move/attack)`);
+  console.log(`  POST /turn     ← LLM pipeline turn`);
+  console.log(`  GET  /latest   ← pipeline state snapshot`);
   console.log(`  POST /replay`);
   console.log();
 });

@@ -1,0 +1,244 @@
+{
+  "title": "AI GM Response (OpenAI Strict)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["narration", "adjudication", "map_updates", "state_updates", "questions"],
+  "properties": {
+    "narration": {
+      "type": "string",
+      "description": "Short in-character narration for players. Plain text only."
+    },
+    "adjudication": {
+      "type": "string",
+      "description": "Brief rules-based explanation of what was resolved and why."
+    },
+    "map_updates": {
+      "type": "array",
+      "description": "Operations that update the battlemap. Apply in order.",
+      "items": { "$ref": "#/$defs/map_update" }
+    },
+    "state_updates": {
+      "type": "array",
+      "description": "Operations that update the game state. Apply in order.",
+      "items": { "$ref": "#/$defs/state_update" }
+    },
+    "questions": {
+      "type": "array",
+      "description": "Clarifying questions when the player action is ambiguous.",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "pos": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "integer" },
+        "y": { "type": "integer" }
+      }
+    },
+    "map_update": {
+      "anyOf": [
+        { "$ref": "#/$defs/move_entity" },
+        { "$ref": "#/$defs/spawn_entity" },
+        { "$ref": "#/$defs/remove_entity" }
+      ]
+    },
+    "state_update": {
+      "anyOf": [
+        { "$ref": "#/$defs/set_hp" },
+        { "$ref": "#/$defs/add_condition" },
+        { "$ref": "#/$defs/remove_condition" },
+        { "$ref": "#/$defs/set_active_entity" },
+        { "$ref": "#/$defs/advance_turn" },
+        { "$ref": "#/$defs/add_event_log" },
+        { "$ref": "#/$defs/update_summary" },
+        { "$ref": "#/$defs/start_combat" },
+        { "$ref": "#/$defs/end_turn" }
+      ]
+    },
+    "move_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "entity_id", "from", "to"],
+      "properties": {
+        "op": { "type": "string", "const": "move_entity" },
+        "entity_id": { "type": "string" },
+        "from": { "$ref": "#/$defs/pos" },
+        "to": { "$ref": "#/$defs/pos" }
+      }
+    },
+    "spawn_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "entity"],
+      "properties": {
+        "op": { "type": "string", "const": "spawn_entity" },
+        "entity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "name", "type", "role", "stats", "hp", "conditions", "pos", "token"],
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "type": { "type": "string", "enum": ["player", "npc"] },
+            "role": { "type": "string", "enum": ["pc", "enemy", "ally", "neutral"] },
+            "stats": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["ac", "speed", "attack_bonus", "damage"],
+              "properties": {
+                "ac": { "type": "integer" },
+                "speed": { "type": "integer" },
+                "attack_bonus": { "type": "integer" },
+                "damage": { "type": "string" }
+              }
+            },
+            "hp": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["current", "max"],
+              "properties": {
+                "current": { "type": "integer" },
+                "max": { "type": "integer" }
+              }
+            },
+            "conditions": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "pos": { "$ref": "#/$defs/pos" },
+            "token": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["shape", "label"],
+              "properties": {
+                "shape": { "type": "string", "enum": ["circle", "square"] },
+                "label": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "remove_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "entity_id"],
+      "properties": {
+        "op": { "type": "string", "const": "remove_entity" },
+        "entity_id": { "type": "string" }
+      }
+    },
+    "set_hp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "entity_id", "current"],
+      "properties": {
+        "op": { "type": "string", "const": "set_hp" },
+        "entity_id": { "type": "string" },
+        "current": { "type": "integer" }
+      }
+    },
+    "add_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "entity_id", "condition"],
+      "properties": {
+        "op": { "type": "string", "const": "add_condition" },
+        "entity_id": { "type": "string" },
+        "condition": { "type": "string" }
+      }
+    },
+    "remove_condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "entity_id", "condition"],
+      "properties": {
+        "op": { "type": "string", "const": "remove_condition" },
+        "entity_id": { "type": "string" },
+        "condition": { "type": "string" }
+      }
+    },
+    "set_active_entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "entity_id"],
+      "properties": {
+        "op": { "type": "string", "const": "set_active_entity" },
+        "entity_id": { "type": "string" }
+      }
+    },
+    "advance_turn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "round", "turn_index", "active_entity_id"],
+      "properties": {
+        "op": { "type": "string", "const": "advance_turn" },
+        "round": { "type": "integer" },
+        "turn_index": { "type": "integer" },
+        "active_entity_id": { "type": "string" }
+      }
+    },
+    "add_event_log": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "event"],
+      "properties": {
+        "op": { "type": "string", "const": "add_event_log" },
+        "event": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["i", "actor_id", "intent", "input", "result", "delta"],
+          "properties": {
+            "i": { "type": "integer" },
+            "actor_id": { "type": "string" },
+            "intent": { "type": "string" },
+            "input": { "type": "string" },
+            "result": { "type": "string" },
+            "delta": { "type": "string" }
+          }
+        }
+      }
+    },
+    "update_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "summary"],
+      "properties": {
+        "op": { "type": "string", "const": "update_summary" },
+        "summary": { "type": "string" }
+      }
+    },
+    "start_combat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "participants"],
+      "properties": {
+        "op": { "type": "string", "const": "start_combat" },
+        "participants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["entity_id", "initiative"],
+            "properties": {
+              "entity_id": { "type": "string" },
+              "initiative": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    "end_turn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["op", "entity_id"],
+      "properties": {
+        "op": { "type": "string", "const": "end_turn" },
+        "entity_id": { "type": "string" }
+      }
+    }
+  }
+}
