@@ -315,10 +315,66 @@ User types text in src/ui/
 
 **Files changed:** `src/engine/pathfinding.mjs`, `src/ai/intentPlanner.mjs`
 
-#### Versioning Note
+### Session 22 — Dead Body Difficult Terrain + DEFEND Action (2026-02-14)
+
+**Commits:** `8777d97` (dead body terrain), `95f2094` (DEFEND action)  
+**Tests:** 15/15 fixtures, 95/95 pathfinding, 199/199 intent, 95/95 engine — all pass
+
+#### Feature 1: Dead entities cost double movement to step over
+
+**Rule:** D&D-style — dead bodies (entities with "dead" condition) are walkable but cost 2 movement points per cell instead of 1 (difficult terrain).
+
+**Changes:**
+- `pathfinding.mjs`: `buildTerrainCostMap()` now adds dead entity positions at cost 2. A* routing accounts for the extra cost.
+- `movement.mjs`: Three changes:
+  1. `occupiedCells()` excludes dead entities (they're walkable, not blocking)
+  2. New `deadEntityCells()` function tracks body positions
+  3. Movement speed validation changed from `path.length > speed` to **cost-based**: each step costs 1 normally, 2 when over a dead body. Total cost must be ≤ movementSpeed.
+
+**Files changed:** `src/engine/pathfinding.mjs`, `src/engine/movement.mjs`
+
+#### Feature 2: DEFEND action (Rüstungsklasse/AC boost)
+
+**Rule:** Entity spends their action to take a defensive posture. Grants +2 to AC (Rüstungsklasse) for 1 round via the "dodging" condition. Costs the entity's action for the turn (mutually exclusive with ATTACK — both use the action budget).
+
+**Changes:**
+- `conditions.mjs`: Added `dodging: { acMod: 2, duration: 1 }` to `CONDITION_DEFS`. The existing `getAcModifier()` automatically picks up the +2 bonus during attack resolution. The existing `processEndOfTurn()` automatically expires it after 1 round.
+- `applyAction.mjs`: Six changes:
+  1. Added "DEFEND" to `VALID_ACTION_TYPES`
+  2. Added DEFEND shape validation (requires `entityId`)
+  3. Added DEFEND to turn-order validation (must be entity's turn)
+  4. Added DEFEND to action budget validation (uses action, mutually exclusive with ATTACK)
+  5. Added DEFEND to `consumeBudget()` (consumes 1 action)
+  6. Added `applyDefend()` function: validates entity exists and is alive, applies "dodging" condition, logs DEFEND_APPLIED event with AC bonus details
+- `intentPlanner.mjs`: `planDefend()` now produces `{ type: "DEFEND", entityId }` instead of the old placeholder `END_TURN`.
+
+**Integration:** Zero additional wiring needed — the "dodging" condition's `acMod: +2` is automatically applied by `getAcModifier()` in `attack.mjs` when resolving `effectiveAc = target.stats.ac + acMod`. And `processEndOfTurn()` in `conditions.mjs` automatically expires it after 1 round. This is the power of the condition system.
+
+**Files changed:** `src/engine/conditions.mjs`, `src/engine/applyAction.mjs`, `src/ai/intentPlanner.mjs`
+
+#### AI Response Op Mapping Update
+
+| AI Response Op | Engine DeclaredAction | Translation Notes |
+|---|---|---|
+| `defend { entity_id }` | `{ type: "DEFEND", entityId }` | Applies "dodging" condition (+2 AC for 1 round) |
+
+#### Updated Action Type Catalogue
+
+The engine now supports **7 action types**:
+- `MOVE` — Cardinal movement with pathfinding
+- `ATTACK` — d20 vs AC, damage on hit, death at 0 HP
+- `DEFEND` — +2 AC for 1 round (costs action)
+- `END_TURN` — Advances initiative to next living entity
+- `ROLL_INITIATIVE` — Switches exploration → combat mode
+- `SET_SEED` — Changes RNG seed (deterministic testing)
+- `USE_ABILITY` — Ability system (planned via intent, executed by engine)
+
+---
+
+## 11. Versioning Note
 
 All changes use proper Git branching:
 - `v0.20.0` tag = pre-bugfix stable state (always rollback-safe)
 - Feature branches for non-trivial changes
 - Pre-commit hooks run all 15 fixture tests before allowing commit
-- Deep tests (intent_system_test, pathfinding_test) run manually before merge
+- Deep tests (intent_system_test, pathfinding_test, engine_test) run manually before merge
