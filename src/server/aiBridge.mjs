@@ -21,6 +21,9 @@
 import { createServer } from "node:http";
 import { proposeAction, proposeActionMock } from "../ai/aiClient.mjs";
 import { parseAiAction } from "../ai/aiActionParser.mjs";
+import { createLogger } from "../core/logger.mjs";
+
+const log = createLogger("server");
 
 // ── Configuration ───────────────────────────────────────────────────────
 
@@ -230,12 +233,12 @@ const server = createServer(async (req, res) => {
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"))) {
   server.listen(PORT, () => {
     const hasKey = !!process.env.OPENAI_API_KEY;
-    console.log(`\n╔══════════════════════════════════════╗`);
-    console.log(`║  MIR 3.3 — AI Bridge Server           ║`);
-    console.log(`╚══════════════════════════════════════╝`);
-    console.log(`\n  http://localhost:${PORT}/api/propose`);
-    console.log(`  AI mode: ${hasKey ? "real (key found)" : "mock (no OPENAI_API_KEY)"}`);
-    console.log(`  Rate limit: ${RATE_MAX_REQUESTS} req / ${RATE_WINDOW_MS / 60000} min\n`);
+    log.info("SERVER_START", {
+      name: "MIR 3.3 — AI Bridge Server",
+      url: `http://localhost:${PORT}/api/propose`,
+      aiMode: hasKey ? "real (key found)" : "mock (no OPENAI_API_KEY)",
+      rateLimit: `${RATE_MAX_REQUESTS} req / ${RATE_WINDOW_MS / 60000} min`,
+    });
   });
 }
 

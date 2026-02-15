@@ -172,7 +172,8 @@ export function initAutoSave(sessionId, getState, getActions, onSaved) {
           });
           if (onSaved) onSaved();
         } catch (err) {
-          console.warn("[auto-save] Failed:", err.message);
+          // Structured log would require logger import; keep as console.warn for browser-only module
+          console.warn("[persistence] AUTOSAVE_FAILED:", err.message);
         }
       }, autoSaveThrottleMs);
     },

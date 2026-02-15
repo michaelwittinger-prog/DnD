@@ -20,6 +20,9 @@
 
 import { buildMessages } from "./aiPromptTemplate.mjs";
 import { parseAiAction } from "./aiActionParser.mjs";
+import { createLogger } from "../core/logger.mjs";
+
+const log = createLogger("ai");
 
 // ── Configuration ───────────────────────────────────────────────────────
 
@@ -64,14 +67,15 @@ function redactForLog(raw, maxLen = 500) {
  * @param {"real"|"mock"} mode
  */
 function logProposal(playerInput, result, mode) {
-  const tag = mode === "real" ? "[AI:real]" : "[AI:mock]";
-  console.log(`${tag} Input: "${playerInput}"`);
-  console.log(`${tag} Raw:   ${redactForLog(result.rawText)}`);
-  console.log(`${tag} Parse: ok=${result.ok}${result.reason ? " — " + result.reason : ""}`);
-  if (result.ok) {
-    console.log(`${tag} Action: ${JSON.stringify(result.action)}`);
-  }
-  console.log(`${tag} Duration: ${result.durationMs}ms`);
+  const level = result.ok ? "info" : "warn";
+  log[level]("AI_PROPOSAL", {
+    mode,
+    input: playerInput,
+    ok: result.ok,
+    ...(result.ok ? { action: result.action } : { reason: result.reason }),
+    raw: redactForLog(result.rawText),
+    durationMs: result.durationMs,
+  });
 }
 
 // ── Types ───────────────────────────────────────────────────────────────

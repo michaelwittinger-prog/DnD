@@ -26,6 +26,9 @@ import { executeTurn, ROOT } from "../pipeline/executeTurn.mjs";
 import { preflight } from "../core/envCheck.mjs";
 import { bootstrapEngineState } from "../state/bootstrapState.mjs";
 import { applyAction } from "../engine/applyAction.mjs";
+import { createLogger } from "../core/logger.mjs";
+
+const log = createLogger("server");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || "3030", 10);
@@ -42,11 +45,11 @@ function loadEngineState() {
     return JSON.parse(readFileSync(ENGINE_STATE_PATH, "utf-8"));
   }
   // Bootstrap from pipeline state on first boot
-  console.log("  [engine] No canonical state found. Bootstrapping from game_state.example.json...");
+  log.info("ENGINE_BOOTSTRAP", { source: "game_state.example.json" });
   const pipelineState = JSON.parse(readFileSync(resolve(ROOT, "game_state.example.json"), "utf-8"));
   const engineState = bootstrapEngineState(pipelineState);
   saveEngineState(engineState);
-  console.log("  [engine] Canonical engine state created.");
+  log.info("ENGINE_BOOTSTRAP_DONE");
   return engineState;
 }
 
@@ -59,13 +62,13 @@ function saveEngineState(state) {
 {
   const check = preflight({ rootDir: ROOT });
   if (!check.ok) {
-    console.error("\n" + check.report + "\n");
+    log.error("PREFLIGHT_FAIL", { report: check.report });
     process.exit(1);
   }
   // Print warnings even if ok
   if (check.result.warnings.length > 0) {
     for (const w of check.result.warnings) {
-      console.log(`  [preflight] ${w}`);
+      log.warn("PREFLIGHT_WARN", { warning: w });
     }
   }
 }
@@ -182,8 +185,7 @@ async function handleTurn(req, res) {
     }
   }
 
-  console.log(`[${requestId}] POST /turn intent: ${JSON.stringify(intent).slice(0, 80)}...`);
-  if (fixturePath) console.log(`  fixture: ${useFixture}`);
+  log.info("REQUEST_TURN", { requestId, intent: JSON.stringify(intent).slice(0, 80), fixture: useFixture || null });
 
   // ── Resolve state path (chain turns) ──────────────────────────
   // If no explicit statePath from the request, use the latest output
@@ -198,7 +200,7 @@ async function handleTurn(req, res) {
       ? latestState
       : resolve(ROOT, "game_state.example.json");
   }
-  console.log(`  state: ${resolvedStatePath}`);
+  log.debug("TURN_STATE_PATH", { requestId, statePath: resolvedStatePath });
 
   // ── Execute turn ──────────────────────────────────────────────
   try {
@@ -222,7 +224,7 @@ async function handleTurn(req, res) {
       // non-fatal
     }
 
-    console.log(`  [${requestId}] → ${result.ok ? "PASS" : "FAIL"} | bundle: ${result.bundleName}`);
+    log.info("TURN_RESULT", { requestId, ok: result.ok, bundle: result.bundleName });
 
     json(res, 200, {
       ok: result.ok,
@@ -236,7 +238,7 @@ async function handleTurn(req, res) {
       error: result.error || null,
     });
   } catch (err) {
-    console.error(`  [${requestId}] → ERROR:`, err.message);
+    log.error("TURN_ERROR", { requestId, error: err.message });
     json(res, 500, { ok: false, error: err.message, requestId });
   }
 }
@@ -283,7 +285,7 @@ async function handleAction(req, res) {
     });
   }
 
-  console.log(`[${requestId}] POST /action type: ${body.type} ${body.entityId || ""}`);
+  log.info("REQUEST_ACTION", { requestId, type: body.type, entityId: body.entityId || null });
 
   try {
     const currentState = loadEngineState();
@@ -292,7 +294,7 @@ async function handleAction(req, res) {
     if (result.success !== false) {
       // Success — persist the new state
       saveEngineState(result.nextState);
-      console.log(`  [${requestId}] → OK | events: ${(result.events || []).length}`);
+      log.info("ACTION_OK", { requestId, eventCount: (result.events || []).length });
       json(res, 200, {
         ok: true,
         requestId,
@@ -302,7 +304,7 @@ async function handleAction(req, res) {
     } else {
       // Engine returned errors (array of strings or error objects)
       const errorMessages = (result.errors || []).map(e => typeof e === "string" ? e : (e.message || e.code || String(e)));
-      console.log(`  [${requestId}] → REJECTED | ${errorMessages.join(", ")}`);
+      log.warn("ACTION_REJECTED", { requestId, errors: errorMessages });
       json(res, 200, {
         ok: false,
         requestId,
@@ -310,7 +312,7 @@ async function handleAction(req, res) {
       });
     }
   } catch (err) {
-    console.error(`  [${requestId}] → ERROR:`, err.message);
+    log.error("ACTION_ERROR", { requestId, error: err.message });
     json(res, 500, { ok: false, error: err.message, requestId });
   }
 }
@@ -349,7 +351,7 @@ async function handleReplay(req, res) {
     });
   }
 
-  console.log(`[${requestId}] POST /replay bundle: ${body.bundlePath}`);
+  log.info("REQUEST_REPLAY", { requestId, bundle: body.bundlePath });
 
   try {
     const replayScript = resolve(ROOT, "src", "pipeline", "replayTurn.mjs");
@@ -358,7 +360,7 @@ async function handleReplay(req, res) {
       { encoding: "utf-8", cwd: ROOT, stdio: "pipe" }
     );
 
-    console.log(`  [${requestId}] → PASS`);
+    log.info("REPLAY_PASS", { requestId });
     json(res, 200, {
       ok: true,
       requestId,
@@ -367,7 +369,7 @@ async function handleReplay(req, res) {
     });
   } catch (err) {
     const output = ((err.stdout || "") + (err.stderr || "")).trim();
-    console.log(`  [${requestId}] → FAIL`);
+    log.warn("REPLAY_FAIL", { requestId });
     json(res, 200, {
       ok: false,
       requestId,
@@ -403,7 +405,7 @@ const server = http.createServer(async (req, res) => {
 
     json(res, 404, { error: `Not found: ${req.method} ${path}` });
   } catch (err) {
-    console.error("Server error:", err);
+    log.error("SERVER_ERROR", { error: err.message });
     json(res, 500, { error: err.message });
   }
 });
@@ -411,14 +413,14 @@ const server = http.createServer(async (req, res) => {
 // ── Graceful shutdown ──────────────────────────────────────────────────
 
 function shutdown(signal) {
-  console.log(`\n[${signal}] Shutting down gracefully...`);
+  log.info("SERVER_SHUTDOWN", { signal });
   server.close(() => {
-    console.log("Server closed. Goodbye.");
+    log.info("SERVER_CLOSED");
     process.exit(0);
   });
   // Force exit after 5s if close hangs
   setTimeout(() => {
-    console.log("Forced exit after timeout.");
+    log.warn("SERVER_FORCED_EXIT");
     process.exit(1);
   }, 5000).unref();
 }
@@ -429,15 +431,9 @@ process.on("SIGTERM", () => shutdown("SIGTERM"));
 // ── Start ──────────────────────────────────────────────────────────────
 
 server.listen(PORT, "127.0.0.1", () => {
-  console.log("╔══════════════════════════════════════╗");
-  console.log("║      AI GM — Local API Server        ║");
-  console.log("╚══════════════════════════════════════╝");
-  console.log(`  API listening on http://127.0.0.1:${PORT}`);
-  console.log(`  GET  /health`);
-  console.log(`  GET  /state    ← canonical engine state`);
-  console.log(`  POST /action   ← direct engine action (click-to-move/attack)`);
-  console.log(`  POST /turn     ← LLM pipeline turn`);
-  console.log(`  GET  /latest   ← pipeline state snapshot`);
-  console.log(`  POST /replay`);
-  console.log();
+  log.info("SERVER_START", {
+    name: "AI GM — Local API Server",
+    url: `http://127.0.0.1:${PORT}`,
+    endpoints: ["GET /health", "GET /state", "POST /action", "POST /turn", "GET /latest", "POST /replay"],
+  });
 });
