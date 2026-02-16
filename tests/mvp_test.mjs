@@ -150,6 +150,11 @@ console.log("\n[Test 5] Demo encounter full combat sequence via engine");
   // Attack from active entity
   const active = s.combat.activeEntityId;
   const targets = s.combat.initiativeOrder.filter((id) => id !== active);
+  // Move attacker adjacent to target for melee range
+  const allEnts = [...s.entities.players, ...s.entities.npcs];
+  const targetEnt = allEnts.find(e => e.id === targets[0]);
+  const activeEnt = allEnts.find(e => e.id === active);
+  activeEnt.position = { x: targetEnt.position.x - 1, y: targetEnt.position.y };
   const atkResult = applyAction(s, { type: "ATTACK", attackerId: active, targetId: targets[0] });
   assert(atkResult.success, `ATTACK ${active} → ${targets[0]} succeeds`);
   s = atkResult.nextState;

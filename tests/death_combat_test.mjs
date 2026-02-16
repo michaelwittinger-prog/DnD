@@ -202,6 +202,8 @@ console.log("\n[Test 8] END_TURN skips dead entities in order");
 console.log("\n[Test 9] Attack kills target → dead condition");
 {
   const state = combatState({ npcHp: 1, seed: "kill-shot" });
+  // Move attacker adjacent to barkeep (6,2) for melee range
+  state.entities.players[0].position = { x: 5, y: 2 };
 
   // Attack repeatedly until barkeep dies (HP 1, any hit kills)
   let s = state;
@@ -258,6 +260,9 @@ console.log("\n[Test 12] Combat ends after killing last NPC");
 {
   // State with barkeep at 1 HP; pre-kill goblin so barkeep is last NPC
   const state = combatState({ npcHp: 1, seed: "auto-end-combat" });
+  // Move both players adjacent to barkeep (6,2) for melee range
+  state.entities.players[0].position = { x: 5, y: 2 };
+  state.entities.players[1].position = { x: 6, y: 1 };
   for (const npc of state.entities.npcs) {
     if (npc.id !== "npc-barkeep") {
       npc.stats.hpCurrent = 0;
