@@ -53,6 +53,21 @@ function main() {
   for (const base of siblings) {
     console.log(`  - ${base}.{mjs,mts}`);
   }
+
+  // --- Threshold enforcement (--max-seams N) ---
+  const maxIdx = process.argv.indexOf("--max-seams");
+  if (maxIdx !== -1) {
+    const maxSeams = parseInt(process.argv[maxIdx + 1], 10);
+    if (Number.isNaN(maxSeams)) {
+      console.error("ERROR: --max-seams requires a numeric argument");
+      process.exit(2);
+    }
+    if (siblings.length > maxSeams) {
+      console.error(`\nFAIL: seam count ${siblings.length} exceeds budget ${maxSeams}`);
+      process.exit(1);
+    }
+    console.log(`\nPASS: seam count ${siblings.length} within budget ${maxSeams}`);
+  }
 }
 
 main();

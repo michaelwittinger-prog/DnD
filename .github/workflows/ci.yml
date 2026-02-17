@@ -30,6 +30,12 @@ jobs:
       - name: Check finalized subproject references
         run: npm run check:subprojects
 
+      - name: Check temp artifacts hygiene
+        run: npm run check:temp
+
+      - name: Check extension seam budget
+        run: npm run check:seams
+
       # ── Gate 1: Schema & Invariant Validation ──────────────────
       - name: Validate game state schema
         run: npm run validate
