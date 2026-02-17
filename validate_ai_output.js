@@ -4,6 +4,9 @@ const Ajv2020 = require("ajv/dist/2020");
 const addFormats = require("ajv-formats");
 const { checkInvariants } = require("./check_invariants");
 
+// LEGACY/FROZEN COMPATIBILITY SCRIPT
+// Retained for root-script compatibility. Prefer canonical pipeline/state validation paths under src/.
+
 // Require a file path argument
 const stateFile = process.argv[2];
 if (!stateFile) {

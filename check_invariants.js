@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 
+// LEGACY/FROZEN COMPATIBILITY MODULE
+// Retained for root-script compatibility. Prefer canonical validation paths under src/state/.
+
 /**
  * Checks logical invariants on a game state object that cannot be
  * expressed in JSON Schema alone.  Returns null on success or a

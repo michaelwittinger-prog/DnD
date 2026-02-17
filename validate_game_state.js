@@ -3,6 +3,9 @@ const path = require("path");
 const Ajv2020 = require("ajv/dist/2020");
 const addFormats = require("ajv-formats");
 
+// LEGACY/FROZEN COMPATIBILITY MODULE
+// Retained for root-script compatibility. Prefer canonical validation paths under src/state/.
+
 const SCHEMA_PATH = path.join(__dirname, "game_state.schema.json");
 
 /**

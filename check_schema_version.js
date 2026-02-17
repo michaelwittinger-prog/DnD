@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
 
+// LEGACY/FROZEN COMPATIBILITY MODULE
+// Retained for root-script compatibility. Prefer canonical validation paths under src/state/.
+
 const EXPECTED_VERSION = "1.0.0";
 
 /**

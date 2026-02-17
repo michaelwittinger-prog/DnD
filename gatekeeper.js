@@ -5,6 +5,10 @@ const { checkSchemaVersion } = require("./check_schema_version");
 const { validateGameState } = require("./validate_game_state");
 const { checkInvariants } = require("./check_invariants");
 
+// LEGACY/FROZEN COMPATIBILITY ENTRYPOINT
+// This file is retained for backward-compatible root scripts.
+// Canonical runtime logic lives in src/* and schema/state validation modules.
+
 // ── Parse CLI args ───────────────────────────────────────────────────
 function parseArgs(argv) {
   const args = {};
