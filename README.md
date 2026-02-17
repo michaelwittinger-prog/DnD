@@ -26,6 +26,15 @@ node scripts/run-server.mjs
 > launcher scripts already enforce this. See [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)
 > for full details.
 
+## Repository cleanup governance
+
+- Cleanup policy and subproject lifecycle: [`docs/repo_cleanup_governance.md`](docs/repo_cleanup_governance.md)
+- GitLens reviewer routine for cleanup PRs: [`docs/gitlens_routine_checklist.md`](docs/gitlens_routine_checklist.md)
+- Root hygiene checks:
+  - `npm run check:subprojects`
+  - `npm run check:temp`
+  - `npm run report:seams`
+
 ## Phase 2 — AI Wiring & Battlemap Viewer
 
 ### Prerequisites
