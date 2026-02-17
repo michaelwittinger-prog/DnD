@@ -16,6 +16,7 @@
     "check:subprojects": "node scripts/check-no-subproject-references.mjs",
     "check:temp": "node scripts/check-temp-artifacts.mjs",
     "check:temp:strict": "node scripts/check-temp-artifacts.mjs --strict",
+    "report:seams": "node scripts/report-extension-siblings.mjs",
     "test:env": "node --test tests/env_check_test.mjs",
     "gate": "node gatekeeper.js",
     "mir:validate": "node src/state/validateGameState.mjs",
