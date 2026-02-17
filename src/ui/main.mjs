@@ -21,6 +21,7 @@ import { renderTokens } from "./renderTokens.mjs";
 import { initInputController } from "./inputController.mjs";
 import { narrateEvent } from "../engine/narrateEvent.mjs";
 import { executeNpcTurn, simulateCombat } from "../engine/combatController.mjs";
+import { initMapEditor } from "./mapEditorUI.mjs";
 import { isNpcTurn } from "../engine/npcTurnStrategy.mjs";
 import { findPath, isAdjacent } from "../engine/pathfinding.mjs";
 import { initSounds, setSoundEnabled, isSoundEnabled, playMove, playHit, playMiss, playKill, playInitiative, playTurnStart, playError, playCombatEnd } from "./sounds.mjs";
@@ -31,6 +32,18 @@ import { listPresets, PRESET_CHARACTERS } from "../content/characterCreator.mjs"
 import { listMapTemplates, buildScenario } from "../content/scenarioBuilder.mjs";
 import { generateEncounter } from "../content/encounterGenerator.mjs";
 import { ABILITY_CATALOGUE } from "../engine/abilities.mjs";
+
+// ── New backend module imports (full capability wiring) ─────────────────
+import { listClasses, getClassTemplate, createCharacter, createFromPreset, listPresets as listCharPresets, validateCharacter, PRESET_CHARACTERS as CC_PRESETS } from "../content/characterCreator.mjs";
+import { listMonsters, searchMonsters, filterByCR, getMonster, instantiateMonster } from "../content/monsterManual.mjs";
+import { generateDungeon, dungeonToStateMap, TILE } from "../content/dungeonGenerator.mjs";
+import { searchRegistry, importBundleFromJson, getRegistryStats, CONTENT_TYPES } from "../content/communityRegistry.mjs";
+import { initRuleModules, DEFAULT_MODULE_ID } from "../rules/initRuleModules.mjs";
+import { listModules, setActiveModule, getActiveModule, getActiveModuleId } from "../rules/ruleModuleRegistry.mjs";
+import { applyRosterToState, exportCampaign, importCampaign } from "../persistence/campaignStore.mjs";
+import { mapAssetToStateMap } from "../content/mapEditor.mjs";
+import { getCurrentCustomMap } from "./mapEditorUI.mjs";
+import { createCampaign, saveCampaign, loadCampaign, listCampaigns, deleteCampaign } from "../persistence/campaignStore.mjs";
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -1465,5 +1478,483 @@ document.getElementById("session-file-input")?.addEventListener("change", async 
 // Init: refresh save list on load
 refreshSaveList();
 
-console.log("MIR S2.x — Tabletop Engine UI loaded (persistence + sounds + zoom/pan)");
+// Initialize Map Editor (Tier 6.1)
+initMapEditor();
+
+// ══════════════════════════════════════════════════════════════════════════
+// Phase 3b — Full Backend Capability Wiring
+// ══════════════════════════════════════════════════════════════════════════
+
+// ── Character Creator Panel ─────────────────────────────────────────────
+
+const ccClassSelect = document.getElementById("cc-class-select");
+const ccClassInfo = document.getElementById("cc-class-info");
+const ccNameInput = document.getElementById("cc-name-input");
+const ccPresetSelect = document.getElementById("cc-preset-select");
+const ccFeedback = document.getElementById("cc-feedback");
+const ccPartyRoster = document.getElementById("cc-party-roster");
+
+let ccCreatedCharacter = null; // last created character (not yet in party)
+const ccParty = []; // party characters created via this panel
+
+function initCharacterCreatorPanel() {
+  if (!ccClassSelect) return;
+  // Populate class dropdown
+  const classes = listClasses();
+  for (const cls of classes) {
+    const opt = document.createElement("option");
+    opt.value = cls.classId;
+    opt.textContent = `${cls.name} (${cls.role})`;
+    ccClassSelect.appendChild(opt);
+  }
+  // Populate preset dropdown
+  if (ccPresetSelect) {
+    const presets = listCharPresets();
+    for (const p of presets) {
+      const opt = document.createElement("option");
+      opt.value = p.presetId;
+      opt.textContent = `${p.name} (${p.classId})`;
+      ccPresetSelect.appendChild(opt);
+    }
+  }
+  // Class info on change
+  ccClassSelect.addEventListener("change", () => {
+    const id = ccClassSelect.value;
+    if (!id || !ccClassInfo) return;
+    const tmpl = getClassTemplate(id);
+    if (tmpl) {
+      ccClassInfo.textContent = `${tmpl.name}: HP ${tmpl.baseHp}, AC ${tmpl.baseAc}, Spd ${tmpl.baseSpeed} — ${tmpl.description || tmpl.role}`;
+    } else {
+      ccClassInfo.textContent = "";
+    }
+  });
+}
+
+document.getElementById("btn-cc-create")?.addEventListener("click", () => {
+  const presetId = ccPresetSelect?.value;
+  if (presetId) {
+    // Use preset
+    try {
+      ccCreatedCharacter = createFromPreset(presetId);
+      showCcFeedback(`✓ Created ${ccCreatedCharacter.name} from preset`, "");
+    } catch (err) {
+      showCcFeedback(`✗ ${err.message}`, "error");
+      return;
+    }
+  } else {
+    // Custom creation
+    const classId = ccClassSelect?.value;
+    const name = ccNameInput?.value?.trim();
+    if (!classId) { showCcFeedback("⚠ Select a class", "error"); return; }
+    if (!name) { showCcFeedback("⚠ Enter a name", "error"); return; }
+    try {
+      ccCreatedCharacter = createCharacter({ classId, name });
+      showCcFeedback(`✓ Created ${ccCreatedCharacter.name} (${classId})`, "");
+    } catch (err) {
+      showCcFeedback(`✗ ${err.message}`, "error");
+      return;
+    }
+  }
+  addNarration(`🧙 Character created: ${ccCreatedCharacter.name}`, "info");
+});
+
+document.getElementById("btn-cc-add-party")?.addEventListener("click", () => {
+  if (!ccCreatedCharacter) { showCcFeedback("⚠ Create a character first", "error"); return; }
+  ccParty.push(structuredClone(ccCreatedCharacter));
+  showCcFeedback(`✓ ${ccCreatedCharacter.name} added to party (${ccParty.length} total)`, "");
+  addNarration(`➕ ${ccCreatedCharacter.name} added to party roster`, "info");
+  ccCreatedCharacter = null;
+  renderCcPartyRoster();
+});
+
+function renderCcPartyRoster() {
+  if (!ccPartyRoster) return;
+  if (ccParty.length === 0) { ccPartyRoster.innerHTML = "<div>No characters yet</div>"; return; }
+  ccPartyRoster.innerHTML = ccParty.map((c, i) =>
+    `<div class="roster-entry"><span>${c.name} (${c.classId || c.kind}) HP:${c.stats.hpMax}</span><button data-idx="${i}">✗</button></div>`
+  ).join("");
+  ccPartyRoster.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.idx);
+      const removed = ccParty.splice(idx, 1)[0];
+      showCcFeedback(`Removed ${removed.name}`, "");
+      renderCcPartyRoster();
+    });
+  });
+}
+
+function showCcFeedback(msg, cls) {
+  if (ccFeedback) { ccFeedback.textContent = msg; ccFeedback.className = `panel-feedback ${cls || ""}`; }
+}
+
+initCharacterCreatorPanel();
+
+// ── Monster Browser Panel ───────────────────────────────────────────────
+
+const mmSearchInput = document.getElementById("mm-search");
+const mmCrFilter = document.getElementById("mm-cr-filter");
+const mmListEl = document.getElementById("mm-list");
+const mmDetailEl = document.getElementById("mm-detail");
+const mmSpawnBtn = document.getElementById("btn-mm-spawn");
+const mmFeedback = document.getElementById("mm-feedback");
+
+let mmSelectedMonster = null;
+
+function renderMonsterList(filter) {
+  if (!mmListEl) return;
+  let monsters = listMonsters();
+  if (filter?.query) monsters = searchMonsters(filter.query);
+  if (filter?.cr) monsters = monsters.filter(m => m.cr === filter.cr);
+  mmListEl.innerHTML = monsters.map(m =>
+    `<div class="monster-entry" data-id="${m.id}"><span>${m.name}</span><span>CR ${m.cr}</span></div>`
+  ).join("");
+  mmListEl.querySelectorAll(".monster-entry").forEach(el => {
+    el.addEventListener("click", () => {
+      mmListEl.querySelectorAll(".selected").forEach(s => s.classList.remove("selected"));
+      el.classList.add("selected");
+      mmSelectedMonster = getMonster(el.dataset.id);
+      renderMonsterDetail();
+      if (mmSpawnBtn) mmSpawnBtn.disabled = false;
+    });
+  });
+}
+
+function renderMonsterDetail() {
+  if (!mmDetailEl || !mmSelectedMonster) { if (mmDetailEl) mmDetailEl.textContent = ""; return; }
+  const m = mmSelectedMonster;
+  mmDetailEl.textContent = `${m.name} | CR ${m.cr} | HP ${m.hp} | AC ${m.ac} | Atk +${m.attackBonus} (${m.damage}) | Speed ${m.speed}`;
+}
+
+mmSearchInput?.addEventListener("input", () => renderMonsterList({ query: mmSearchInput.value, cr: mmCrFilter?.value }));
+mmCrFilter?.addEventListener("change", () => renderMonsterList({ query: mmSearchInput?.value, cr: mmCrFilter.value }));
+
+mmSpawnBtn?.addEventListener("click", () => {
+  if (!mmSelectedMonster) return;
+  try {
+    const instance = instantiateMonster(mmSelectedMonster.id, {
+      position: { x: 0, y: 0 }, // Default position — user can move
+    });
+    const newState = structuredClone(gameState);
+    // Ensure no collision — find first open cell
+    const occupied = new Set([...newState.entities.players, ...newState.entities.npcs, ...newState.entities.objects]
+      .map(e => `${e.position.x},${e.position.y}`));
+    const { width, height } = newState.map.grid.size;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (!occupied.has(`${x},${y}`)) {
+          instance.position = { x, y };
+          y = height; // break outer
+          break;
+        }
+      }
+    }
+    newState.entities.npcs.push(instance);
+    loadState(newState);
+    if (mmFeedback) { mmFeedback.textContent = `✓ Spawned ${instance.name} at (${instance.position.x},${instance.position.y})`; mmFeedback.className = "panel-feedback"; }
+    addNarration(`👹 Spawned ${instance.name}`, "info");
+  } catch (err) {
+    if (mmFeedback) { mmFeedback.textContent = `✗ ${err.message}`; mmFeedback.className = "panel-feedback error"; }
+  }
+});
+
+renderMonsterList({});
+
+// ── Dungeon Generator Panel ─────────────────────────────────────────────
+
+const dgPreview = document.getElementById("dg-preview");
+const dgFeedback = document.getElementById("dg-feedback");
+const dgUseBtn = document.getElementById("btn-dg-use");
+let lastDungeon = null;
+
+document.getElementById("btn-dg-generate")?.addEventListener("click", () => {
+  const w = Number(document.getElementById("dg-width")?.value) || 30;
+  const h = Number(document.getElementById("dg-height")?.value) || 30;
+  const rooms = Number(document.getElementById("dg-rooms")?.value) || 8;
+  const seed = Number(document.getElementById("dg-seed")?.value) || Date.now();
+  try {
+    lastDungeon = generateDungeon({ width: w, height: h, maxRooms: rooms, seed });
+    // Render ASCII preview
+    if (dgPreview) {
+      const tileChar = { [TILE.WALL]: "█", [TILE.FLOOR]: ".", [TILE.CORRIDOR]: "·", [TILE.DOOR]: "+", [TILE.STAIRS_DOWN]: ">", [TILE.STAIRS_UP]: "<", [TILE.TRAP]: "^", [TILE.TREASURE]: "$", [TILE.WATER]: "~" };
+      const ascii = lastDungeon.grid.map(row => row.map(t => tileChar[t] || "?").join("")).join("\n");
+      dgPreview.textContent = ascii;
+    }
+    if (dgFeedback) { dgFeedback.textContent = `✓ Dungeon ${w}×${h}, ${lastDungeon.rooms?.length || rooms} rooms, seed ${seed}`; dgFeedback.className = "panel-feedback"; }
+    if (dgUseBtn) dgUseBtn.disabled = false;
+    addNarration(`🏰 Dungeon generated (${w}×${h})`, "info");
+  } catch (err) {
+    if (dgFeedback) { dgFeedback.textContent = `✗ ${err.message}`; dgFeedback.className = "panel-feedback error"; }
+  }
+});
+
+dgUseBtn?.addEventListener("click", () => {
+  if (!lastDungeon) return;
+  try {
+    const stateMap = dungeonToStateMap(lastDungeon);
+    const newState = structuredClone(gameState);
+    newState.map = { ...newState.map, ...stateMap, name: "Generated Dungeon" };
+    loadState(newState);
+    if (dgFeedback) { dgFeedback.textContent = "✓ Dungeon loaded as active map"; dgFeedback.className = "panel-feedback"; }
+    addNarration("🏰 Dungeon loaded as active map", "info");
+  } catch (err) {
+    if (dgFeedback) { dgFeedback.textContent = `✗ ${err.message}`; dgFeedback.className = "panel-feedback error"; }
+  }
+});
+
+// ── Rules Module Switcher ───────────────────────────────────────────────
+
+const rulesModuleSelect = document.getElementById("rules-module-select");
+const rulesModuleInfo = document.getElementById("rules-module-info");
+const rulesFeedback = document.getElementById("rules-feedback");
+
+function initRulesPanel() {
+  // Initialize built-in rule modules
+  try { initRuleModules(); } catch { /* already initialized */ }
+
+  if (!rulesModuleSelect) return;
+  const modules = listModules();
+  rulesModuleSelect.innerHTML = "";
+  const activeId = getActiveModuleId();
+  for (const mod of modules) {
+    const opt = document.createElement("option");
+    opt.value = mod.id;
+    opt.textContent = `${mod.name} (v${mod.version})`;
+    opt.selected = mod.id === activeId;
+    rulesModuleSelect.appendChild(opt);
+  }
+  updateRulesInfo();
+
+  rulesModuleSelect.addEventListener("change", () => {
+    const id = rulesModuleSelect.value;
+    try {
+      setActiveModule(id);
+      updateRulesInfo();
+      if (rulesFeedback) { rulesFeedback.textContent = `✓ Active rules: ${id}`; rulesFeedback.className = "panel-feedback"; }
+      addNarration(`📜 Rules switched to: ${id}`, "info");
+    } catch (err) {
+      if (rulesFeedback) { rulesFeedback.textContent = `✗ ${err.message}`; rulesFeedback.className = "panel-feedback error"; }
+    }
+  });
+}
+
+function updateRulesInfo() {
+  if (!rulesModuleInfo) return;
+  const mod = getActiveModule();
+  if (mod) {
+    rulesModuleInfo.textContent = `${mod.name} v${mod.version} — ${mod.description || "No description"}`;
+  }
+}
+
+initRulesPanel();
+
+// ── Community Registry Panel ────────────────────────────────────────────
+
+const communitySearchInput = document.getElementById("community-search");
+const communityTypeFilter = document.getElementById("community-type-filter");
+const communityResults = document.getElementById("community-results");
+const communityFeedback = document.getElementById("community-feedback");
+const communityStats = document.getElementById("community-stats");
+
+document.getElementById("btn-community-search")?.addEventListener("click", () => {
+  const query = communitySearchInput?.value || "";
+  const type = communityTypeFilter?.value || "";
+  try {
+    const results = searchRegistry({ query, type: type || undefined });
+    if (communityResults) {
+      if (results.length === 0) {
+        communityResults.innerHTML = "<div>No results found</div>";
+      } else {
+        communityResults.innerHTML = results.map(r =>
+          `<div class="community-entry"><strong>${r.name}</strong> <span>(${r.type})</span> by ${r.author || "—"} v${r.version || "1"}</div>`
+        ).join("");
+      }
+    }
+    if (communityFeedback) { communityFeedback.textContent = `✓ ${results.length} results`; communityFeedback.className = "panel-feedback"; }
+  } catch (err) {
+    if (communityFeedback) { communityFeedback.textContent = `✗ ${err.message}`; communityFeedback.className = "panel-feedback error"; }
+  }
+});
+
+document.getElementById("community-import-input")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  e.target.value = "";
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    const result = importBundleFromJson(json);
+    if (communityFeedback) { communityFeedback.textContent = `✓ Imported: ${result.name || "bundle"}`; communityFeedback.className = "panel-feedback"; }
+    addNarration(`🌐 Community bundle imported: ${result.name || "bundle"}`, "info");
+    refreshCommunityStats();
+  } catch (err) {
+    if (communityFeedback) { communityFeedback.textContent = `✗ ${err.message}`; communityFeedback.className = "panel-feedback error"; }
+  }
+});
+
+function refreshCommunityStats() {
+  if (!communityStats) return;
+  try {
+    const stats = getRegistryStats();
+    communityStats.textContent = `Total: ${stats.total || 0} bundles | Types: ${JSON.stringify(stats.byType || {})}`;
+  } catch { communityStats.textContent = "Registry empty"; }
+}
+
+refreshCommunityStats();
+
+// ── Campaign Management Panel ───────────────────────────────────────────
+
+const campaignNameInput = document.getElementById("campaign-name");
+const campaignRoster = document.getElementById("campaign-roster");
+const campaignFeedback = document.getElementById("campaign-feedback");
+
+let currentCampaignId = null;
+
+function showCampaignFeedback(msg, cls) {
+  if (campaignFeedback) { campaignFeedback.textContent = msg; campaignFeedback.className = `panel-feedback ${cls || ""}`; }
+}
+
+document.getElementById("btn-campaign-new")?.addEventListener("click", () => {
+  const name = campaignNameInput?.value?.trim() || "New Campaign";
+  try {
+    const campaign = createCampaign({ name });
+    currentCampaignId = campaign.id;
+    showCampaignFeedback(`✓ Campaign "${name}" created`, "");
+    addNarration(`📖 Campaign created: ${name}`, "info");
+    renderCampaignRoster(campaign);
+  } catch (err) {
+    showCampaignFeedback(`✗ ${err.message}`, "error");
+  }
+});
+
+document.getElementById("btn-campaign-save")?.addEventListener("click", async () => {
+  if (!currentCampaignId) { showCampaignFeedback("⚠ Create or load a campaign first", "error"); return; }
+  try {
+    await saveCampaign(currentCampaignId);
+    showCampaignFeedback("✓ Campaign saved", "");
+    addNarration("💾 Campaign saved", "info");
+  } catch (err) {
+    showCampaignFeedback(`✗ ${err.message}`, "error");
+  }
+});
+
+document.getElementById("btn-campaign-export")?.addEventListener("click", () => {
+  if (!currentCampaignId) { showCampaignFeedback("⚠ No campaign loaded", "error"); return; }
+  try {
+    const data = exportCampaign(currentCampaignId);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `campaign-${currentCampaignId}.json`; a.click();
+    URL.revokeObjectURL(url);
+    showCampaignFeedback("✓ Campaign exported", "");
+  } catch (err) {
+    showCampaignFeedback(`✗ ${err.message}`, "error");
+  }
+});
+
+document.getElementById("campaign-import-input")?.addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  e.target.value = "";
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    const campaign = importCampaign(json);
+    currentCampaignId = campaign.id;
+    showCampaignFeedback(`✓ Imported: ${campaign.name}`, "");
+    addNarration(`📖 Campaign imported: ${campaign.name}`, "info");
+    renderCampaignRoster(campaign);
+  } catch (err) {
+    showCampaignFeedback(`✗ ${err.message}`, "error");
+  }
+});
+
+document.getElementById("btn-campaign-apply-roster")?.addEventListener("click", () => {
+  if (!currentCampaignId) {
+    // Fall back to ccParty if no campaign
+    if (ccParty.length > 0) {
+      const newState = structuredClone(gameState);
+      newState.entities.players = ccParty.map((c, i) => ({
+        ...c,
+        position: c.position || { x: i, y: 0 },
+      }));
+      loadState(newState);
+      showCampaignFeedback(`✓ Applied ${ccParty.length} characters from creator`, "");
+      addNarration(`🧙 Party of ${ccParty.length} applied to game state`, "info");
+      return;
+    }
+    showCampaignFeedback("⚠ No campaign or party to apply", "error");
+    return;
+  }
+  try {
+    const newState = applyRosterToState(currentCampaignId, gameState);
+    loadState(newState);
+    showCampaignFeedback("✓ Roster applied to game state", "");
+    addNarration("🧙 Campaign roster applied to game state", "info");
+  } catch (err) {
+    showCampaignFeedback(`✗ ${err.message}`, "error");
+  }
+});
+
+function renderCampaignRoster(campaign) {
+  if (!campaignRoster) return;
+  const roster = campaign?.roster || [];
+  if (roster.length === 0) {
+    campaignRoster.innerHTML = "<div>No roster yet — use Character Creator to build one</div>";
+    return;
+  }
+  campaignRoster.innerHTML = roster.map(c =>
+    `<div class="roster-entry"><span>${c.name} (${c.classId || c.kind})</span></div>`
+  ).join("");
+}
+
+// ── Startup Diagnostics ─────────────────────────────────────────────────
+
+function runStartupDiagnostics() {
+  const required = {
+    "Map Editor": ["btn-new-map", "map-editor-canvas", "terrain-palette"],
+    "Character Creator": ["cc-class-select", "btn-cc-create"],
+    "Monster Browser": ["mm-search", "mm-list", "btn-mm-spawn"],
+    "Dungeon Generator": ["btn-dg-generate", "dg-preview"],
+    "Rules Switcher": ["rules-module-select"],
+    "Community Registry": ["btn-community-search", "community-results"],
+    "Campaign Manager": ["btn-campaign-new", "campaign-roster"],
+  };
+  const issues = [];
+  for (const [panel, ids] of Object.entries(required)) {
+    for (const id of ids) {
+      if (!document.getElementById(id)) {
+        issues.push(`${panel}: missing #${id}`);
+      }
+    }
+  }
+  if (issues.length > 0) {
+    console.warn("[MIR Diagnostics] Missing DOM elements:", issues);
+  } else {
+    console.log("[MIR Diagnostics] ✓ All panel DOM elements present");
+  }
+  // Log capability map
+  console.log("[MIR Capabilities]", {
+    mapEditor: !!document.getElementById("map-editor-canvas"),
+    characterCreator: !!document.getElementById("cc-class-select"),
+    monsterBrowser: !!document.getElementById("mm-list"),
+    dungeonGenerator: !!document.getElementById("dg-preview"),
+    rulesSwitcher: !!document.getElementById("rules-module-select"),
+    communityRegistry: !!document.getElementById("community-results"),
+    campaignManager: !!document.getElementById("campaign-roster"),
+    combat: true,
+    aiPropose: true,
+    replay: true,
+    persistence: true,
+  });
+  return issues;
+}
+
+const diagnosticIssues = runStartupDiagnostics();
+
+console.log("MIR S3.0 — Tabletop Engine UI loaded (full capability wiring)");
 console.log("State:", gameState.map.name, `${gameState.map.grid.size.width}×${gameState.map.grid.size.height}`);
+console.log(`Panels wired: map-editor, character-creator, monster-browser, dungeon-gen, rules, community, campaign`);
+if (diagnosticIssues.length > 0) {
+  console.warn(`⚠ ${diagnosticIssues.length} DOM issues detected — see diagnostics above`);
+}

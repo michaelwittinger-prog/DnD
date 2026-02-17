@@ -1,9 +1,9 @@
 {
-  "narration": "No player input was received. Please provide an action.",
-  "adjudication": "No rules were applied due to lack of player input.",
+  "narration": "Please specify your action or movement.",
+  "adjudication": "The input received was not defined or recognizable as an action. Awaiting clarification to proceed.",
   "map_updates": [],
   "state_updates": [],
   "questions": [
-    "What action would you like your character to take?"
+    "What action would you like to perform? Please specify your action or movement."
   ]
 }

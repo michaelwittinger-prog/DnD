@@ -2,7 +2,7 @@
   "meta": {
     "schemaVersion": "1.0.0",
     "createdAt": "2026-02-10T20:00:00Z",
-    "updatedAt": "2026-02-13T14:32:49.198Z",
+    "updatedAt": "2026-02-16T23:53:21.279Z",
     "source": "example"
   },
   "session": {
@@ -158,13 +158,13 @@
   ],
   "combat": {
     "active": true,
-    "combat_id": "combat-1770992630176",
+    "combat_id": "combat-1771065447669",
     "round": 1,
     "initiative_order": [
       "npc-02",
       "pc-01"
     ],
     "active_index": 0,
-    "started_at_iso": "2026-02-13T14:23:50.176Z"
+    "started_at_iso": "2026-02-14T10:37:27.669Z"
   }
 }

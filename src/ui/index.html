@@ -175,6 +175,189 @@
           <div id="replay-feedback"></div>
         </section>
 
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- Map Editor (Tier 6.1) — full panel with all required IDs -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <section id="section-map-editor">
+          <h2>🗺 Map Editor</h2>
+          <div class="map-editor-controls">
+            <div class="map-editor-row">
+              <label for="map-name-input">Name:</label>
+              <input id="map-name-input" type="text" placeholder="My Map" />
+            </div>
+            <div class="map-editor-row">
+              <label for="map-width-input">W:</label>
+              <input id="map-width-input" type="number" min="3" max="50" value="10" />
+              <label for="map-height-input">H:</label>
+              <input id="map-height-input" type="number" min="3" max="50" value="10" />
+            </div>
+            <div class="map-editor-toolbar">
+              <button id="btn-new-map" class="btn-secondary">🆕 New</button>
+              <button id="btn-save-map" class="btn-secondary">💾 Save</button>
+              <button id="btn-load-map" class="btn-secondary">📂 Load</button>
+              <button id="btn-export-map" class="btn-secondary">📤 Export</button>
+              <button id="btn-use-in-scenario" class="btn-secondary">🎮 Use in Scenario</button>
+            </div>
+            <div class="map-editor-tools">
+              <span>Tool:</span>
+              <button class="tool-btn active" data-tool="paint" title="Paint">🖌</button>
+              <button class="tool-btn" data-tool="erase" title="Erase">🧹</button>
+              <button class="tool-btn" data-tool="fill" title="Fill">🪣</button>
+            </div>
+            <div class="map-editor-layers">
+              <span>Layer:</span>
+              <button class="layer-btn active" data-layer="terrain" title="Terrain">🏔</button>
+              <button class="layer-btn" data-layer="objects" title="Objects">📦</button>
+            </div>
+            <div id="terrain-palette" class="terrain-palette">
+              <!-- Palette items populated by mapEditorUI.mjs -->
+            </div>
+          </div>
+          <div id="map-editor-canvas-wrap" class="map-editor-canvas-wrap">
+            <canvas id="map-editor-canvas" width="320" height="320"></canvas>
+          </div>
+          <div id="map-editor-feedback" class="panel-feedback"></div>
+          <details>
+            <summary>Validation</summary>
+            <ul id="map-validation-list"></ul>
+          </details>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- Character Creator                                        -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <section id="section-character-creator">
+          <h2>🧙 Character Creator</h2>
+          <div class="creator-row">
+            <label for="cc-class-select">Class:</label>
+            <select id="cc-class-select"><option value="">— Select —</option></select>
+          </div>
+          <div id="cc-class-info" class="creator-info"></div>
+          <div class="creator-row">
+            <label for="cc-name-input">Name:</label>
+            <input id="cc-name-input" type="text" placeholder="Hero name" />
+          </div>
+          <div class="creator-row">
+            <label for="cc-preset-select">Or use preset:</label>
+            <select id="cc-preset-select"><option value="">— Custom —</option></select>
+          </div>
+          <button id="btn-cc-create" class="btn-primary">✨ Create Character</button>
+          <button id="btn-cc-add-party" class="btn-secondary">➕ Add to Party</button>
+          <div id="cc-party-roster" class="party-roster"></div>
+          <div id="cc-feedback" class="panel-feedback"></div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- Monster Browser / Spawner                                -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <section id="section-monster-browser">
+          <h2>👹 Monster Manual</h2>
+          <div class="creator-row">
+            <input id="mm-search" type="text" placeholder="Search monsters…" />
+          </div>
+          <div class="creator-row">
+            <label for="mm-cr-filter">CR:</label>
+            <select id="mm-cr-filter">
+              <option value="">All</option>
+              <option value="minion">Minion</option>
+              <option value="standard">Standard</option>
+              <option value="elite">Elite</option>
+              <option value="boss">Boss</option>
+            </select>
+          </div>
+          <div id="mm-list" class="monster-list"></div>
+          <div id="mm-detail" class="monster-detail"></div>
+          <button id="btn-mm-spawn" class="btn-primary" disabled>⚔ Spawn Selected</button>
+          <div id="mm-feedback" class="panel-feedback"></div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- Dungeon Generator                                        -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <section id="section-dungeon-gen">
+          <h2>🏰 Dungeon Generator</h2>
+          <div class="creator-row">
+            <label for="dg-width">W:</label>
+            <input id="dg-width" type="number" min="15" max="80" value="30" />
+            <label for="dg-height">H:</label>
+            <input id="dg-height" type="number" min="15" max="80" value="30" />
+          </div>
+          <div class="creator-row">
+            <label for="dg-rooms">Rooms:</label>
+            <input id="dg-rooms" type="number" min="3" max="20" value="8" />
+            <label for="dg-seed">Seed:</label>
+            <input id="dg-seed" type="number" value="42" />
+          </div>
+          <button id="btn-dg-generate" class="btn-primary">🎲 Generate Dungeon</button>
+          <button id="btn-dg-use" class="btn-secondary" disabled>🎮 Use as Map</button>
+          <div id="dg-preview" class="dungeon-preview"></div>
+          <div id="dg-feedback" class="panel-feedback"></div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- Rules Module Switcher                                    -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <section id="section-rules">
+          <h2>📜 Rules Modules</h2>
+          <div class="creator-row">
+            <label for="rules-module-select">Active:</label>
+            <select id="rules-module-select"></select>
+          </div>
+          <div id="rules-module-info" class="creator-info"></div>
+          <div id="rules-feedback" class="panel-feedback"></div>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- Community Registry                                       -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <section id="section-community">
+          <h2>🌐 Community Registry</h2>
+          <div class="creator-row">
+            <input id="community-search" type="text" placeholder="Search content…" />
+            <select id="community-type-filter">
+              <option value="">All Types</option>
+              <option value="scenario">Scenario</option>
+              <option value="map">Map</option>
+              <option value="ruleModule">Rule Module</option>
+              <option value="monsterPack">Monster Pack</option>
+            </select>
+          </div>
+          <button id="btn-community-search" class="btn-secondary">🔍 Search</button>
+          <div id="community-results" class="community-results"></div>
+          <div class="community-actions">
+            <label class="file-btn">📥 Import Bundle
+              <input id="community-import-input" type="file" accept=".json" hidden />
+            </label>
+          </div>
+          <div id="community-feedback" class="panel-feedback"></div>
+          <details>
+            <summary>📊 Registry Stats</summary>
+            <div id="community-stats"></div>
+          </details>
+        </section>
+
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <!-- Campaign Management                                      -->
+        <!-- ══════════════════════════════════════════════════════════ -->
+        <section id="section-campaign">
+          <h2>📖 Campaign</h2>
+          <div class="creator-row">
+            <label for="campaign-name">Name:</label>
+            <input id="campaign-name" type="text" placeholder="Campaign name" />
+          </div>
+          <div class="campaign-actions">
+            <button id="btn-campaign-new" class="btn-secondary">🆕 New</button>
+            <button id="btn-campaign-save" class="btn-secondary">💾 Save</button>
+            <button id="btn-campaign-export" class="btn-secondary">📤 Export</button>
+            <label class="file-btn">📥 Import
+              <input id="campaign-import-input" type="file" accept=".json" hidden />
+            </label>
+          </div>
+          <button id="btn-campaign-apply-roster" class="btn-primary">🧙 Apply Roster to State</button>
+          <div id="campaign-roster" class="party-roster"></div>
+          <div id="campaign-feedback" class="panel-feedback"></div>
+        </section>
+
         <section id="section-log">
           <h2>Event Log</h2>
           <ul id="event-log"></ul>
