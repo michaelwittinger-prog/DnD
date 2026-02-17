@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "subprojects": [
+    {
+      "id": "repo-cleanup",
+      "path": "subprojects/repo-cleanup",
+      "status": "active",
+      "finalizedAt": null,
+      "archivePath": null,
+      "canonicalOutputs": []
+    }
+  ]
+}

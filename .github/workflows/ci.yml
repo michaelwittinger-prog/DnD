@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check finalized subproject references
+        run: npm run check:subprojects
+
       # ── Gate 1: Schema & Invariant Validation ──────────────────
       - name: Validate game state schema
         run: npm run validate
@@ -66,6 +69,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check finalized subproject references
+        run: npm run check:subprojects
 
       - name: TypeScript error count
         run: |
