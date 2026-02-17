@@ -8,6 +8,7 @@
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { spawn } from "child_process";
+import "../src/core/loadEnv.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const serverRoot = resolve(__dirname, "..", "server");

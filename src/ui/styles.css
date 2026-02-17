@@ -68,7 +68,6 @@ input, select { font-family: inherit; }
 }
 
 /* ── Welcome / Getting Started ────────────────────────────────── */
-#section-welcome { }
 .welcome-scenario-row, .welcome-difficulty-row, .welcome-replay-row {
   display: flex; gap: 6px; align-items: center; margin-bottom: 6px;
 }
@@ -149,6 +148,16 @@ input, select { font-family: inherit; }
 .ai-controls input { flex: 1; }
 .ai-controls button { white-space: nowrap; }
 
+.ai-connection-status {
+  font-size: 0.75rem;
+  margin: 2px 0 6px;
+  line-height: 1.2;
+}
+
+.ai-connection-status.ok { color: #7CFC9A; }
+.ai-connection-status.warn { color: #FFD166; }
+.ai-connection-status.error { color: #FF7B7B; }
+
 #ai-feedback { font-size: 0.75rem; margin-top: 4px; min-height: 1.2em; color: #aaa; }
 #ai-debug { font-size: 0.7rem; max-height: 120px; overflow: auto; background: #111; padding: 4px; border-radius: 4px; }
 
@@ -219,8 +228,6 @@ input, select { font-family: inherit; }
 .panel-feedback.error { color: #e07070; }
 
 /* ── Map Editor Panel ─────────────────────────────────────────── */
-#section-map-editor { }
-.map-editor-controls { }
 .map-editor-row { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
 .map-editor-row label { white-space: nowrap; font-size: 0.78rem; }
 .map-editor-row input { flex: 1; font-size: 0.78rem; padding: 3px 6px; }
@@ -259,7 +266,6 @@ input, select { font-family: inherit; }
 #map-editor-canvas { display: block; }
 
 /* ── Character Creator Panel ──────────────────────────────────── */
-#section-character-creator { }
 .party-roster {
   max-height: 120px; overflow-y: auto; margin-top: 6px;
   font-size: 0.75rem;
@@ -274,7 +280,6 @@ input, select { font-family: inherit; }
 }
 
 /* ── Monster Browser Panel ────────────────────────────────────── */
-#section-monster-browser { }
 .monster-list {
   max-height: 140px; overflow-y: auto; margin: 6px 0;
 }
@@ -290,7 +295,6 @@ input, select { font-family: inherit; }
 }
 
 /* ── Dungeon Generator Panel ──────────────────────────────────── */
-#section-dungeon-gen { }
 .dungeon-preview {
   background: #111; border-radius: 4px; min-height: 40px;
   max-height: 200px; overflow: auto; margin: 6px 0;
@@ -299,10 +303,8 @@ input, select { font-family: inherit; }
 }
 
 /* ── Rules Module Panel ───────────────────────────────────────── */
-#section-rules { }
 
 /* ── Community Registry Panel ─────────────────────────────────── */
-#section-community { }
 .community-results {
   max-height: 140px; overflow-y: auto; margin: 6px 0;
 }
@@ -313,7 +315,6 @@ input, select { font-family: inherit; }
 .community-actions { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0; }
 
 /* ── Campaign Panel ───────────────────────────────────────────── */
-#section-campaign { }
 .campaign-actions { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0; }
 
 /* ── Scrollbar styling ────────────────────────────────────────── */

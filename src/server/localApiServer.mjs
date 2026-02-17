@@ -27,6 +27,8 @@ import { preflight } from "../core/envCheck.mjs";
 import { bootstrapEngineState } from "../state/bootstrapState.mjs";
 import { applyAction } from "../engine/applyAction.mjs";
 import { createLogger } from "../core/logger.mjs";
+import { parseLLMIntent } from "../ai/llmIntentParser.mjs";
+import { AI_CONFIG } from "../ai/aiClient.mjs";
 
 const log = createLogger("server");
 
@@ -120,10 +122,147 @@ function readJsonFile(path) {
   }
 }
 
+function parsePromptToMessages(prompt) {
+  if (!prompt || typeof prompt !== "string") {
+    return [{ role: "user", content: String(prompt ?? "") }];
+  }
+
+  const parts = prompt.split(/\n\n\[user\]\n/i);
+  if (parts.length >= 2) {
+    const systemContent = parts[0].replace(/^\[system\]\n/i, "").trim();
+    const userContent = parts.slice(1).join("\n\n[user]\n").trim();
+    return [
+      { role: "system", content: systemContent },
+      { role: "user", content: userContent },
+    ];
+  }
+
+  return [{ role: "user", content: prompt }];
+}
+
+const serverLlmAdapter = {
+  id: "server-openai-adapter",
+  name: "Server OpenAI Adapter",
+  provider: "openai",
+  model: process.env.OPENAI_MODEL || AI_CONFIG.model,
+  async call(prompt, _state, callOptions = {}) {
+    const apiKeyPresent = !!process.env.OPENAI_API_KEY;
+    if (!apiKeyPresent) {
+      return { ok: false, response: null, error: "Server OpenAI key not configured" };
+    }
+
+    const { getClient } = await import("../adapters/openaiClient.mjs");
+    const messages = parsePromptToMessages(prompt);
+    const model = process.env.OPENAI_MODEL || AI_CONFIG.model;
+    const temperature = Math.min(Math.max(callOptions.temperature ?? 0.1, 0), 0.3);
+    const maxTokens = callOptions.maxTokens ?? 200;
+    const t0 = Date.now();
+
+    try {
+      const response = await getClient().chat.completions.create({
+        model,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+        response_format: { type: "json_object" },
+      });
+
+      const content = response.choices?.[0]?.message?.content ?? "";
+      let parsed = content;
+      if (typeof content === "string") {
+        try {
+          parsed = JSON.parse(content);
+        } catch {
+          parsed = content;
+        }
+      }
+
+      return {
+        ok: true,
+        response: parsed,
+        latencyMs: Date.now() - t0,
+        usage: response.usage
+          ? {
+              promptTokens: response.usage.prompt_tokens ?? 0,
+              completionTokens: response.usage.completion_tokens ?? 0,
+              totalTokens: response.usage.total_tokens ?? 0,
+            }
+          : { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        response: null,
+        error: err?.message || "OpenAI request failed",
+        latencyMs: Date.now() - t0,
+      };
+    }
+  },
+};
+
 // ── Routes ─────────────────────────────────────────────────────────────
 
 async function handleHealth(_req, res) {
   json(res, 200, { ok: true, version: "5.1", port: PORT });
+}
+
+async function handleAiStatus(_req, res) {
+  const keyConfigured = !!process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_MODEL || AI_CONFIG.model;
+  json(res, 200, {
+    ok: true,
+    provider: "openai",
+    model,
+    keyConfigured,
+    mode: keyConfigured ? "real" : "mock",
+  });
+}
+
+async function handleAiIntent(req, res) {
+  const requestId = generateRequestId();
+  let body;
+  try {
+    body = await readBody(req);
+  } catch (e) {
+    return json(res, 400, {
+      ok: false,
+      error: "INVALID_REQUEST",
+      message: e.message,
+      requestId,
+    });
+  }
+
+  const playerInput = body?.playerInput;
+  const state = body?.state;
+  if (typeof playerInput !== "string" || !playerInput.trim()) {
+    return json(res, 400, {
+      ok: false,
+      error: "INVALID_REQUEST",
+      message: "Missing required field: playerInput (non-empty string).",
+      requestId,
+    });
+  }
+  if (!state || typeof state !== "object") {
+    return json(res, 400, {
+      ok: false,
+      error: "INVALID_REQUEST",
+      message: "Missing required field: state (object).",
+      requestId,
+    });
+  }
+
+  const options = {
+    temperature: typeof body.temperature === "number" ? body.temperature : 0.1,
+    maxTokens: typeof body.maxTokens === "number" ? body.maxTokens : 200,
+    fallbackToMock: true,
+  };
+
+  const result = await parseLLMIntent(playerInput, state, serverLlmAdapter, options);
+  json(res, 200, {
+    ok: true,
+    requestId,
+    result,
+  });
 }
 
 async function handleTurn(req, res) {
@@ -303,7 +442,7 @@ async function handleAction(req, res) {
       });
     } else {
       // Engine returned errors (array of strings or error objects)
-      const errorMessages = (result.errors || []).map(e => typeof e === "string" ? e : (e.message || e.code || String(e)));
+      const errorMessages = (result.errors || []).map(/** @type {function(any): string} */ (e) => typeof e === "string" ? e : (/** @type {any} */ (e).message || /** @type {any} */ (e).code || String(e)));
       log.warn("ACTION_REJECTED", { requestId, errors: errorMessages });
       json(res, 200, {
         ok: false,
@@ -397,6 +536,8 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (path === "/health" && req.method === "GET") return await handleHealth(req, res);
+    if (path === "/ai/status" && req.method === "GET") return await handleAiStatus(req, res);
+    if (path === "/ai/intent" && req.method === "POST") return await handleAiIntent(req, res);
     if (path === "/state" && req.method === "GET") return await handleState(req, res);
     if (path === "/action" && req.method === "POST") return await handleAction(req, res);
     if (path === "/turn" && req.method === "POST") return await handleTurn(req, res);
@@ -434,6 +575,6 @@ server.listen(PORT, "127.0.0.1", () => {
   log.info("SERVER_START", {
     name: "AI GM — Local API Server",
     url: `http://127.0.0.1:${PORT}`,
-    endpoints: ["GET /health", "GET /state", "POST /action", "POST /turn", "GET /latest", "POST /replay"],
+    endpoints: ["GET /health", "GET /ai/status", "POST /ai/intent", "GET /state", "POST /action", "POST /turn", "GET /latest", "POST /replay"],
   });
 });

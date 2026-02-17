@@ -14,6 +14,7 @@ import { executeIntent, executePlan } from "../ai/intentExecutor.mjs";
 import { planFromIntent } from "../ai/intentPlanner.mjs";
 import { parseLLMIntent } from "../ai/llmIntentParser.mjs";
 import { createBrowserOpenAIAdapter, saveApiKey, loadApiKey, isApiKeyFormat } from "./browserOpenAIAdapter.mjs";
+import { createServerOpenAIAdapter, getServerAiStatus } from "./serverOpenAIAdapter.mjs";
 import { explorationExample, demoEncounter } from "../state/exampleStates.mjs";
 import { stateHash } from "../replay/hash.mjs";
 import { renderGrid } from "./renderGrid.mjs";
@@ -72,7 +73,7 @@ let npcTurnRunning = false;  // prevents double-execution
 
 // ── DOM refs ────────────────────────────────────────────────────────────
 
-const canvas = document.getElementById("battlemap");
+const canvas = /** @type {HTMLCanvasElement} */ (document.getElementById("battlemap"));
 const ctx = canvas.getContext("2d");
 const mapNameEl = document.getElementById("map-name");
 const combatStatusEl = document.getElementById("combat-status");
@@ -206,17 +207,17 @@ function renderSeedDisplay() {
 }
 
 function updateButtonStates() {
-  const btnRollInit = document.getElementById("btn-roll-init");
-  const btnEndTurn = document.getElementById("btn-end-turn");
-  const btnAttack = document.getElementById("btn-attack");
-  const btnDefend = document.getElementById("btn-defend");
+  const btnRollInit = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-roll-init"));
+  const btnEndTurn = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-end-turn"));
+  const btnAttack = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-attack"));
+  const btnDefend = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-defend"));
 
   const inCombat = gameState.combat.mode === "combat";
   const isPlayerTurn = inCombat && !isNpcTurn(gameState);
 
-  btnRollInit.disabled = inCombat || npcTurnRunning;
-  btnEndTurn.disabled = !isPlayerTurn || npcTurnRunning;
-  btnAttack.disabled = !gameState.ui.selectedEntityId || npcTurnRunning;
+  if (btnRollInit) btnRollInit.disabled = inCombat || npcTurnRunning;
+  if (btnEndTurn) btnEndTurn.disabled = !isPlayerTurn || npcTurnRunning;
+  if (btnAttack) btnAttack.disabled = !gameState.ui.selectedEntityId || npcTurnRunning;
   if (btnDefend) btnDefend.disabled = !isPlayerTurn || npcTurnRunning;
 
   // Disable canvas clicks during NPC turns
@@ -252,7 +253,7 @@ function renderAbilityBar(isPlayerTurn) {
     const id = typeof abId === "string" ? abId : abId.name;
     const cat = ABILITY_CATALOGUE[id];
     if (!cat) return null;
-    const cooldownRemaining = ent.abilityCooldowns?.[id] ?? 0;
+    const cooldownRemaining = /** @type {any} */ (ent).abilityCooldowns?.[id] ?? 0;
     return { id, ...cat, cooldownRemaining };
   }).filter(Boolean);
 
@@ -282,7 +283,8 @@ function renderAbilityBar(isPlayerTurn) {
   }).join("");
 
   // Attach click handlers
-  abilityBarEl.querySelectorAll(".ability-btn:not([disabled])").forEach(btn => {
+  abilityBarEl.querySelectorAll(".ability-btn:not([disabled])").forEach(btnEl => {
+    const btn = /** @type {HTMLButtonElement} */ (btnEl);
     btn.addEventListener("click", () => onAbilityClick(btn.dataset.ability, btn.dataset.targeting, Number(btn.dataset.range)));
   });
 }
@@ -623,7 +625,7 @@ function onHoverCell(gx, gy) {
   const occupied = all.find(e => e.position.x === gx && e.position.y === gy);
   if (occupied) { uiOverlay.pathPreview = []; return; }
 
-  const pathResult = findPath(state, mover.position, { x: gx, y: gy }, mover.stats.movementSpeed);
+  const pathResult = findPath(state, mover.position, { x: gx, y: gy }, { maxCost: mover.stats.movementSpeed, entityId: moverId });
   uiOverlay.pathPreview = pathResult ? pathResult.path : [];
 }
 
@@ -643,21 +645,24 @@ const aiDebugEl = document.getElementById("ai-debug");
 // LLM automatically falls back to mock on any failure.
 
 let currentAiMode = "llm";    // "mock" or "llm"
-let llmAdapter = null;         // browser OpenAI adapter instance
+let llmAdapter = null;         // dev override browser adapter instance
 
 /**
  * Get or create the LLM adapter using the current API key.
  * Recreates if the key changed.
  */
 function getLLMAdapter() {
-  const key = loadApiKey();
-  if (!key) return null;
-  // Recreate adapter if key changed
-  if (!llmAdapter || llmAdapter._apiKey !== key) {
-    llmAdapter = createBrowserOpenAIAdapter({ apiKey: key });
-    llmAdapter._apiKey = key; // track which key was used
+  if (DEV_BROWSER_KEY_OVERRIDE) {
+    const key = loadApiKey();
+    if (!key) return null;
+    // Recreate adapter if key changed
+    if (!llmAdapter || /** @type {any} */ (llmAdapter)._apiKey !== key) {
+      llmAdapter = createBrowserOpenAIAdapter({ apiKey: key });
+      /** @type {any} */ (llmAdapter)._apiKey = key; // track which key was used
+    }
+    return llmAdapter;
   }
-  return llmAdapter;
+  return serverLlmAdapter;
 }
 
 async function onAiPropose(playerInput) {
@@ -667,15 +672,17 @@ async function onAiPropose(playerInput) {
   const t0 = Date.now();
 
   if (currentAiMode === "llm") {
+    await refreshAiConnectionStatus();
+
     // ── LLM Path: parseLLMIntent → planFromIntent → executePlan ──
     const adapter = getLLMAdapter();
     if (!adapter) {
-      showAiFeedback("✗ No API key set — enter your OpenAI key above", "error");
-      addNarration("⚠ LLM mode requires an OpenAI API key", "error");
+      showAiFeedback("✗ LLM unavailable — enable server key or dev override key", "error");
+      addNarration("⚠ LLM unavailable: no server key and no dev override key", "error");
       return;
     }
 
-    showAiFeedback("⏳ Calling OpenAI…", "pending");
+    showAiFeedback("⏳ Calling OpenAI (background server proxy)…", "pending");
 
     try {
       const llmResult = await parseLLMIntent(playerInput, gameState, adapter);
@@ -702,7 +709,7 @@ async function onAiPropose(playerInput) {
           ok: intentResult.ok,
           intent: intentResult.intent?.type ?? null,
           source: llmResult.source,
-          actionsExecuted: intentResult.actionsExecuted ?? 0,
+          actionsExecuted: /** @type {any} */ (intentResult).actionsExecuted ?? 0,
           narrationHint: intentResult.narrationHint ?? null,
           llmError: llmResult.error ?? null,
           llmLatencyMs: llmResult.latencyMs,
@@ -727,9 +734,9 @@ async function onAiPropose(playerInput) {
       aiDebugEl.textContent = JSON.stringify({
         input: playerInput, ok: intentResult.ok,
         intent: intentResult.intent?.type ?? null,
-        actionsExecuted: intentResult.actionsExecuted ?? 0,
+        actionsExecuted: /** @type {any} */ (intentResult).actionsExecuted ?? 0,
         narrationHint: intentResult.narrationHint ?? null,
-        error: intentResult.error ?? null,
+        error: /** @type {any} */ (intentResult).error ?? null,
         durationMs: intentResult.durationMs,
         mode,
       }, null, 2);
@@ -778,7 +785,7 @@ function applyIntentResult(intentResult, playerInput, mode) {
 
   const latencyInfo = intentResult.llmLatencyMs ? ` (LLM: ${intentResult.llmLatencyMs}ms)` : "";
   const tokenInfo = intentResult.llmUsage?.totalTokens ? ` [${intentResult.llmUsage.totalTokens} tok]` : "";
-  showAiFeedback(`[${mode}] ✓ ${intentResult.intent?.type || "OK"} → ${intentResult.actionsExecuted ?? 0} action(s) (${intentResult.durationMs}ms)${latencyInfo}${tokenInfo}`, "success");
+  showAiFeedback(`[${mode}] ✓ ${intentResult.intent?.type || "OK"} → ${/** @type {any} */ (intentResult).actionsExecuted ?? 0} action(s) (${intentResult.durationMs}ms)${latencyInfo}${tokenInfo}`, "success");
 }
 
 function showAiFeedback(msg, className) {
@@ -808,9 +815,11 @@ document.getElementById("btn-export-replay")?.addEventListener("click", () => {
 });
 
 document.getElementById("replay-file-input")?.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
+  /** @type {HTMLInputElement|null} */
+  const input = e.target instanceof HTMLInputElement ? e.target : null;
+  const file = input?.files?.[0];
   if (!file) return;
-  e.target.value = "";
+  input.value = "";
   try {
     const text = await file.text();
     const bundle = JSON.parse(text);
@@ -835,8 +844,8 @@ document.getElementById("replay-file-input")?.addEventListener("change", async (
 // ── Welcome Panel ───────────────────────────────────────────────────
 
 const replayStatusEl = document.getElementById("replay-status");
-const replaySelectEl = document.getElementById("replay-select");
-const btnRunReplay = document.getElementById("btn-run-replay");
+const replaySelectEl = /** @type {HTMLSelectElement|null} */ (document.getElementById("replay-select"));
+const btnRunReplay = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-run-replay"));
 const indModeEl = document.getElementById("ind-mode");
 const indActiveEl = document.getElementById("ind-active");
 const indSeedEl = document.getElementById("ind-seed");
@@ -881,16 +890,58 @@ function updateIndicators() {
 
 // ── AI Mode Selector (P1 — LLM parser wiring) ──────────────────────────
 
-const aiModeSelectEl = document.getElementById("ai-mode-select");
+const aiModeSelectEl = /** @type {HTMLSelectElement|null} */ (document.getElementById("ai-mode-select"));
 const aiApikeyRowEl = document.getElementById("ai-apikey-row");
-const aiApikeyInputEl = document.getElementById("ai-apikey-input");
+const aiApikeyInputEl = /** @type {HTMLInputElement|null} */ (document.getElementById("ai-apikey-input"));
 const aiApikeyStatusEl = document.getElementById("ai-apikey-status");
+const aiConnectionStatusEl = document.getElementById("ai-connection-status");
+
+let aiConnection = {
+  ok: false,
+  keyConfigured: false,
+  mode: "offline",
+  model: null,
+  provider: "openai",
+  error: null,
+};
+
+const DEV_BROWSER_KEY_OVERRIDE = (() => {
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    const fromQuery = qs.get("devBrowserKey") === "1";
+    const fromStorage = localStorage.getItem("mir_dev_browser_key_override") === "1";
+    return fromQuery || fromStorage;
+  } catch {
+    return false;
+  }
+})();
+
+const serverLlmAdapter = createServerOpenAIAdapter({ apiBase: "http://127.0.0.1:3030" });
+
+async function refreshAiConnectionStatus() {
+  aiConnection = await getServerAiStatus("http://127.0.0.1:3030");
+  renderAiConnectionStatus();
+}
+
+function renderAiConnectionStatus() {
+  if (!aiConnectionStatusEl) return;
+  if (aiConnection.ok && aiConnection.keyConfigured) {
+    aiConnectionStatusEl.textContent = `🟢 OpenAI connected (server) · ${aiConnection.model || "model: default"}`;
+    aiConnectionStatusEl.className = "ai-connection-status ok";
+  } else if (aiConnection.ok) {
+    aiConnectionStatusEl.textContent = `🟡 OpenAI key missing on server — mock fallback active`;
+    aiConnectionStatusEl.className = "ai-connection-status warn";
+  } else {
+    aiConnectionStatusEl.textContent = `🔴 AI server offline — ${aiConnection.error || "connection unavailable"}`;
+    aiConnectionStatusEl.className = "ai-connection-status error";
+  }
+}
 
 function updateAiModeUI() {
   const mode = currentAiMode;
   // Show/hide API key row
   if (aiApikeyRowEl) {
-    aiApikeyRowEl.style.display = mode === "llm" ? "flex" : "none";
+    aiApikeyRowEl.style.display = mode === "llm" && DEV_BROWSER_KEY_OVERRIDE ? "flex" : "none";
   }
   // Update indicator badge
   if (indAiModeEl) {
@@ -901,7 +952,7 @@ function updateAiModeUI() {
   updateApiKeyStatus();
   // Update placeholder text for AI input
   const aiInput = document.getElementById("ai-input");
-  if (aiInput) {
+  if (aiInput instanceof HTMLInputElement) {
     aiInput.placeholder = mode === "llm"
       ? 'e.g. "I cautiously approach the dark figure"'
       : 'e.g. "attack the barkeep"';
@@ -910,6 +961,11 @@ function updateAiModeUI() {
 
 function updateApiKeyStatus() {
   if (!aiApikeyStatusEl) return;
+  if (!DEV_BROWSER_KEY_OVERRIDE) {
+    aiApikeyStatusEl.textContent = "";
+    aiApikeyStatusEl.className = "";
+    return;
+  }
   const key = loadApiKey();
   if (key && isApiKeyFormat(key)) {
     aiApikeyStatusEl.textContent = "✓ key set";
@@ -925,7 +981,8 @@ function updateApiKeyStatus() {
 
 // Mode selector change
 aiModeSelectEl?.addEventListener("change", () => {
-  currentAiMode = aiModeSelectEl.value;
+  const modeSelect = aiModeSelectEl instanceof HTMLSelectElement ? aiModeSelectEl : null;
+  currentAiMode = modeSelect?.value || "mock";
   updateAiModeUI();
   const label = currentAiMode === "llm" ? "LLM (OpenAI)" : "Mock (offline)";
   addNarration(`🧠 AI parser switched to: ${label}`, "info");
@@ -943,7 +1000,7 @@ document.getElementById("btn-apikey-save")?.addEventListener("click", () => {
   llmAdapter = null; // Force adapter recreation with new key
   if (aiApikeyInputEl) aiApikeyInputEl.value = ""; // Clear input for security
   updateApiKeyStatus();
-  addNarration("🔑 OpenAI API key saved (session only)", "info");
+  addNarration("🔑 Dev override API key saved (session only)", "info");
 });
 
 // Also save key on Enter
@@ -956,7 +1013,7 @@ aiApikeyInputEl?.addEventListener("keydown", (e) => {
 // Restore saved key status on load
 {
   const savedKey = loadApiKey();
-  if (savedKey && isApiKeyFormat(savedKey)) {
+  if (DEV_BROWSER_KEY_OVERRIDE && savedKey && isApiKeyFormat(savedKey)) {
     // Key exists in sessionStorage — don't show it, just indicate it's set
     updateApiKeyStatus();
   }
@@ -964,10 +1021,11 @@ aiApikeyInputEl?.addEventListener("keydown", (e) => {
 
 // Initialize AI mode UI
 updateAiModeUI();
+refreshAiConnectionStatus();
 
 // ── Scenario Selector ───────────────────────────────────────────────
 
-const scenarioSelectEl = document.getElementById("scenario-select");
+const scenarioSelectEl = /** @type {HTMLSelectElement|null} */ (document.getElementById("scenario-select"));
 const btnLoadScenario = document.getElementById("btn-load-scenario");
 const SCENARIO_FILES = ["tavern_skirmish.scenario.json", "corridor_ambush.scenario.json", "open_field_duel.scenario.json"];
 
@@ -1004,7 +1062,7 @@ populateScenarioList();
 
 // ── Difficulty Selector (Tier 5.3) ──────────────────────────────────────
 
-const difficultySelectEl = document.getElementById("difficulty-select");
+const difficultySelectEl = /** @type {HTMLSelectElement|null} */ (document.getElementById("difficulty-select"));
 
 function getSelectedDifficulty() {
   return difficultySelectEl?.value || "normal";
@@ -1066,9 +1124,9 @@ document.getElementById("btn-random-encounter")?.addEventListener("click", () =>
 
 // ── Custom Encounter Builder (Tier 6.2 + 6.4) ──────────────────────────
 
-const mapSelectEl = document.getElementById("map-select");
+const mapSelectEl = /** @type {HTMLSelectElement|null} */ (document.getElementById("map-select"));
 const partyChecksEl = document.getElementById("party-checkboxes");
-const builderDiffEl = document.getElementById("builder-difficulty");
+const builderDiffEl = /** @type {HTMLSelectElement|null} */ (document.getElementById("builder-difficulty"));
 const builderPreviewEl = document.getElementById("builder-preview");
 const builderFeedbackEl = document.getElementById("builder-feedback");
 
@@ -1105,7 +1163,7 @@ function populateBuilderPanel() {
 
 function getSelectedPartyIds() {
   if (!partyChecksEl) return [];
-  return [...partyChecksEl.querySelectorAll("input:checked")].map(cb => cb.value);
+  return Array.from(partyChecksEl.querySelectorAll("input:checked")).map(cb => /** @type {HTMLInputElement} */ (cb).value);
 }
 
 function updateBuilderPreview() {
@@ -1186,7 +1244,7 @@ document.getElementById("btn-generate-play")?.addEventListener("click", () => {
 
   // Close the details panel
   const detailsEl = document.getElementById("create-encounter-panel");
-  if (detailsEl) detailsEl.open = false;
+  if (detailsEl instanceof HTMLDetailsElement) detailsEl.open = false;
 });
 
 populateBuilderPanel();
@@ -1443,7 +1501,8 @@ async function refreshSaveList() {
 
 // Delegate click events for save list
 saveListEl?.addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-action]");
+  const target = /** @type {HTMLElement|null} */ (e.target instanceof HTMLElement ? e.target : null);
+  const btn = /** @type {HTMLElement|null} */ (target?.closest("[data-action]") || null);
   if (!btn) return;
   const id = btn.dataset.id;
   if (btn.dataset.action === "load") onLoadSave(id);
@@ -1463,9 +1522,11 @@ document.getElementById("btn-export-session")?.addEventListener("click", () => {
 
 // Import session from file (S2.5)
 document.getElementById("session-file-input")?.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
+  /** @type {HTMLInputElement|null} */
+  const input = e.target instanceof HTMLInputElement ? e.target : null;
+  const file = input?.files?.[0];
   if (!file) return;
-  e.target.value = "";
+  input.value = "";
   try {
     const session = await importSessionFromFile(file);
     loadState(session.gameState);
@@ -1487,10 +1548,10 @@ initMapEditor();
 
 // ── Character Creator Panel ─────────────────────────────────────────────
 
-const ccClassSelect = document.getElementById("cc-class-select");
+const ccClassSelect = /** @type {HTMLSelectElement|null} */ (document.getElementById("cc-class-select"));
 const ccClassInfo = document.getElementById("cc-class-info");
-const ccNameInput = document.getElementById("cc-name-input");
-const ccPresetSelect = document.getElementById("cc-preset-select");
+const ccNameInput = /** @type {HTMLInputElement|null} */ (document.getElementById("cc-name-input"));
+const ccPresetSelect = /** @type {HTMLSelectElement|null} */ (document.getElementById("cc-preset-select"));
 const ccFeedback = document.getElementById("cc-feedback");
 const ccPartyRoster = document.getElementById("cc-party-roster");
 
@@ -1504,7 +1565,7 @@ function initCharacterCreatorPanel() {
   for (const cls of classes) {
     const opt = document.createElement("option");
     opt.value = cls.classId;
-    opt.textContent = `${cls.name} (${cls.role})`;
+      opt.textContent = `${cls.name}`;
     ccClassSelect.appendChild(opt);
   }
   // Populate preset dropdown
@@ -1535,7 +1596,7 @@ document.getElementById("btn-cc-create")?.addEventListener("click", () => {
   if (presetId) {
     // Use preset
     try {
-      ccCreatedCharacter = createFromPreset(presetId);
+      ccCreatedCharacter = createFromPreset(presetId, { x: 0, y: 0 });
       showCcFeedback(`✓ Created ${ccCreatedCharacter.name} from preset`, "");
     } catch (err) {
       showCcFeedback(`✗ ${err.message}`, "error");
@@ -1548,7 +1609,7 @@ document.getElementById("btn-cc-create")?.addEventListener("click", () => {
     if (!classId) { showCcFeedback("⚠ Select a class", "error"); return; }
     if (!name) { showCcFeedback("⚠ Enter a name", "error"); return; }
     try {
-      ccCreatedCharacter = createCharacter({ classId, name });
+      ccCreatedCharacter = createCharacter(classId, `pc-${name.toLowerCase().replace(/\s+/g, "-")}`, name, { x: 0, y: 0 });
       showCcFeedback(`✓ Created ${ccCreatedCharacter.name} (${classId})`, "");
     } catch (err) {
       showCcFeedback(`✗ ${err.message}`, "error");
@@ -1575,7 +1636,7 @@ function renderCcPartyRoster() {
   ).join("");
   ccPartyRoster.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", () => {
-      const idx = Number(btn.dataset.idx);
+      const idx = Number((/** @type {HTMLButtonElement} */ (btn)).dataset.idx);
       const removed = ccParty.splice(idx, 1)[0];
       showCcFeedback(`Removed ${removed.name}`, "");
       renderCcPartyRoster();
@@ -1591,11 +1652,11 @@ initCharacterCreatorPanel();
 
 // ── Monster Browser Panel ───────────────────────────────────────────────
 
-const mmSearchInput = document.getElementById("mm-search");
-const mmCrFilter = document.getElementById("mm-cr-filter");
+const mmSearchInput = /** @type {HTMLInputElement|null} */ (document.getElementById("mm-search"));
+const mmCrFilter = /** @type {HTMLSelectElement|null} */ (document.getElementById("mm-cr-filter"));
 const mmListEl = document.getElementById("mm-list");
 const mmDetailEl = document.getElementById("mm-detail");
-const mmSpawnBtn = document.getElementById("btn-mm-spawn");
+const mmSpawnBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-mm-spawn"));
 const mmFeedback = document.getElementById("mm-feedback");
 
 let mmSelectedMonster = null;
@@ -1606,13 +1667,13 @@ function renderMonsterList(filter) {
   if (filter?.query) monsters = searchMonsters(filter.query);
   if (filter?.cr) monsters = monsters.filter(m => m.cr === filter.cr);
   mmListEl.innerHTML = monsters.map(m =>
-    `<div class="monster-entry" data-id="${m.id}"><span>${m.name}</span><span>CR ${m.cr}</span></div>`
+    `<div class="monster-entry" data-id="${m.templateId}"><span>${m.name}</span><span>CR ${m.cr}</span></div>`
   ).join("");
   mmListEl.querySelectorAll(".monster-entry").forEach(el => {
     el.addEventListener("click", () => {
       mmListEl.querySelectorAll(".selected").forEach(s => s.classList.remove("selected"));
       el.classList.add("selected");
-      mmSelectedMonster = getMonster(el.dataset.id);
+      mmSelectedMonster = getMonster((/** @type {HTMLElement} */ (el)).dataset.id || "");
       renderMonsterDetail();
       if (mmSpawnBtn) mmSpawnBtn.disabled = false;
     });
@@ -1631,9 +1692,7 @@ mmCrFilter?.addEventListener("change", () => renderMonsterList({ query: mmSearch
 mmSpawnBtn?.addEventListener("click", () => {
   if (!mmSelectedMonster) return;
   try {
-    const instance = instantiateMonster(mmSelectedMonster.id, {
-      position: { x: 0, y: 0 }, // Default position — user can move
-    });
+    const instance = instantiateMonster(mmSelectedMonster.templateId, `npc-${mmSelectedMonster.templateId}-${Date.now()}`, { x: 0, y: 0 });
     const newState = structuredClone(gameState);
     // Ensure no collision — find first open cell
     const occupied = new Set([...newState.entities.players, ...newState.entities.npcs, ...newState.entities.objects]
@@ -1663,16 +1722,20 @@ renderMonsterList({});
 
 const dgPreview = document.getElementById("dg-preview");
 const dgFeedback = document.getElementById("dg-feedback");
-const dgUseBtn = document.getElementById("btn-dg-use");
+const dgUseBtn = /** @type {HTMLButtonElement|null} */ (document.getElementById("btn-dg-use"));
 let lastDungeon = null;
 
 document.getElementById("btn-dg-generate")?.addEventListener("click", () => {
-  const w = Number(document.getElementById("dg-width")?.value) || 30;
-  const h = Number(document.getElementById("dg-height")?.value) || 30;
-  const rooms = Number(document.getElementById("dg-rooms")?.value) || 8;
-  const seed = Number(document.getElementById("dg-seed")?.value) || Date.now();
+  const dgWidthInput = /** @type {HTMLInputElement|null} */ (document.getElementById("dg-width"));
+  const dgHeightInput = /** @type {HTMLInputElement|null} */ (document.getElementById("dg-height"));
+  const dgRoomsInput = /** @type {HTMLInputElement|null} */ (document.getElementById("dg-rooms"));
+  const dgSeedInput = /** @type {HTMLInputElement|null} */ (document.getElementById("dg-seed"));
+  const w = Number(dgWidthInput?.value) || 30;
+  const h = Number(dgHeightInput?.value) || 30;
+  const rooms = Number(dgRoomsInput?.value) || 8;
+  const seed = Number(dgSeedInput?.value) || Date.now();
   try {
-    lastDungeon = generateDungeon({ width: w, height: h, maxRooms: rooms, seed });
+    lastDungeon = generateDungeon({ width: w, height: h, maxDepth: Math.max(2, rooms), seed });
     // Render ASCII preview
     if (dgPreview) {
       const tileChar = { [TILE.WALL]: "█", [TILE.FLOOR]: ".", [TILE.CORRIDOR]: "·", [TILE.DOOR]: "+", [TILE.STAIRS_DOWN]: ">", [TILE.STAIRS_UP]: "<", [TILE.TRAP]: "^", [TILE.TREASURE]: "$", [TILE.WATER]: "~" };
@@ -1703,7 +1766,7 @@ dgUseBtn?.addEventListener("click", () => {
 
 // ── Rules Module Switcher ───────────────────────────────────────────────
 
-const rulesModuleSelect = document.getElementById("rules-module-select");
+const rulesModuleSelect = /** @type {HTMLSelectElement|null} */ (document.getElementById("rules-module-select"));
 const rulesModuleInfo = document.getElementById("rules-module-info");
 const rulesFeedback = document.getElementById("rules-feedback");
 
@@ -1725,7 +1788,7 @@ function initRulesPanel() {
   updateRulesInfo();
 
   rulesModuleSelect.addEventListener("change", () => {
-    const id = rulesModuleSelect.value;
+    const id = /** @type {HTMLSelectElement} */ (rulesModuleSelect).value;
     try {
       setActiveModule(id);
       updateRulesInfo();
@@ -1749,15 +1812,15 @@ initRulesPanel();
 
 // ── Community Registry Panel ────────────────────────────────────────────
 
-const communitySearchInput = document.getElementById("community-search");
-const communityTypeFilter = document.getElementById("community-type-filter");
+const communitySearchInput = /** @type {HTMLInputElement|null} */ (document.getElementById("community-search"));
+const communityTypeFilter = /** @type {HTMLSelectElement|null} */ (document.getElementById("community-type-filter"));
 const communityResults = document.getElementById("community-results");
 const communityFeedback = document.getElementById("community-feedback");
 const communityStats = document.getElementById("community-stats");
 
 document.getElementById("btn-community-search")?.addEventListener("click", () => {
-  const query = communitySearchInput?.value || "";
-  const type = communityTypeFilter?.value || "";
+  const query = communitySearchInput instanceof HTMLInputElement ? communitySearchInput.value : "";
+  const type = communityTypeFilter instanceof HTMLSelectElement ? communityTypeFilter.value : "";
   try {
     const results = searchRegistry({ query, type: type || undefined });
     if (communityResults) {
@@ -1765,7 +1828,7 @@ document.getElementById("btn-community-search")?.addEventListener("click", () =>
         communityResults.innerHTML = "<div>No results found</div>";
       } else {
         communityResults.innerHTML = results.map(r =>
-          `<div class="community-entry"><strong>${r.name}</strong> <span>(${r.type})</span> by ${r.author || "—"} v${r.version || "1"}</div>`
+          `<div class="community-entry"><strong>${r.name}</strong> <span>(${/** @type {any} */ (r).type || "unknown"})</span> by ${r.author || "—"} v${r.version || "1"}</div>`
         ).join("");
       }
     }
@@ -1776,15 +1839,18 @@ document.getElementById("btn-community-search")?.addEventListener("click", () =>
 });
 
 document.getElementById("community-import-input")?.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
+  /** @type {HTMLInputElement|null} */
+  const input = e.target instanceof HTMLInputElement ? e.target : null;
+  const file = input?.files?.[0];
   if (!file) return;
-  e.target.value = "";
+  input.value = "";
   try {
     const text = await file.text();
     const json = JSON.parse(text);
     const result = importBundleFromJson(json);
-    if (communityFeedback) { communityFeedback.textContent = `✓ Imported: ${result.name || "bundle"}`; communityFeedback.className = "panel-feedback"; }
-    addNarration(`🌐 Community bundle imported: ${result.name || "bundle"}`, "info");
+    const importedName = result.bundle?.meta?.name || "bundle";
+    if (communityFeedback) { communityFeedback.textContent = `✓ Imported: ${importedName}`; communityFeedback.className = "panel-feedback"; }
+    addNarration(`🌐 Community bundle imported: ${importedName}`, "info");
     refreshCommunityStats();
   } catch (err) {
     if (communityFeedback) { communityFeedback.textContent = `✗ ${err.message}`; communityFeedback.className = "panel-feedback error"; }
@@ -1795,7 +1861,7 @@ function refreshCommunityStats() {
   if (!communityStats) return;
   try {
     const stats = getRegistryStats();
-    communityStats.textContent = `Total: ${stats.total || 0} bundles | Types: ${JSON.stringify(stats.byType || {})}`;
+    communityStats.textContent = `Total: ${stats.totalBundles || 0} bundles | Types: ${JSON.stringify(stats.byType || {})}`;
   } catch { communityStats.textContent = "Registry empty"; }
 }
 
@@ -1813,10 +1879,11 @@ function showCampaignFeedback(msg, cls) {
   if (campaignFeedback) { campaignFeedback.textContent = msg; campaignFeedback.className = `panel-feedback ${cls || ""}`; }
 }
 
-document.getElementById("btn-campaign-new")?.addEventListener("click", () => {
-  const name = campaignNameInput?.value?.trim() || "New Campaign";
+document.getElementById("btn-campaign-new")?.addEventListener("click", async () => {
+  const campaignNameInputEl = campaignNameInput instanceof HTMLInputElement ? campaignNameInput : null;
+  const name = campaignNameInputEl?.value?.trim() || "New Campaign";
   try {
-    const campaign = createCampaign({ name });
+    const campaign = await createCampaign({ name });
     currentCampaignId = campaign.id;
     showCampaignFeedback(`✓ Campaign "${name}" created`, "");
     addNarration(`📖 Campaign created: ${name}`, "info");
@@ -1853,9 +1920,11 @@ document.getElementById("btn-campaign-export")?.addEventListener("click", () => 
 });
 
 document.getElementById("campaign-import-input")?.addEventListener("change", async (e) => {
-  const file = e.target.files?.[0];
+  /** @type {HTMLInputElement|null} */
+  const input = e.target instanceof HTMLInputElement ? e.target : null;
+  const file = input?.files?.[0];
   if (!file) return;
-  e.target.value = "";
+  input.value = "";
   try {
     const text = await file.text();
     const json = JSON.parse(text);
@@ -1887,10 +1956,15 @@ document.getElementById("btn-campaign-apply-roster")?.addEventListener("click", 
     return;
   }
   try {
-    const newState = applyRosterToState(currentCampaignId, gameState);
-    loadState(newState);
-    showCampaignFeedback("✓ Roster applied to game state", "");
-    addNarration("🧙 Campaign roster applied to game state", "info");
+    loadCampaign(currentCampaignId).then((campaign) => {
+      if (!campaign) throw new Error("Campaign not found");
+      const newState = applyRosterToState(campaign, gameState);
+      loadState(newState);
+      showCampaignFeedback("✓ Roster applied to game state", "");
+      addNarration("🧙 Campaign roster applied to game state", "info");
+    }).catch((err) => {
+      showCampaignFeedback(`✗ ${err.message}`, "error");
+    });
   } catch (err) {
     showCampaignFeedback(`✗ ${err.message}`, "error");
   }

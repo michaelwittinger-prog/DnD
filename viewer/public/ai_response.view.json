@@ -1,9 +1,43 @@
 {
-  "narration": "Please specify your action or movement.",
-  "adjudication": "The input received was not defined or recognizable as an action. Awaiting clarification to proceed.",
-  "map_updates": [],
-  "state_updates": [],
-  "questions": [
-    "What action would you like to perform? Please specify your action or movement."
-  ]
+  "narration": "Seren strides forward, closing the distance to Captain Voss, then swings her sword with precision.",
+  "adjudication": "1. The active turn is Seren's, confirmed by matching the entity with id 'pc-01' to the timeline's active entity (TURN_01).\n2. Seren's speed is 6, allowing movement up to 6 squares. Moving from (5,6) to (6,6) costs 1 square, within her movement range (MOVE_01).\n3. Seren attacks Captain Voss from an adjacent position with an attack bonus of 5. Using the rng.lastRoll of 14, the total attack roll is 19, which hits Voss's AC of 14 (ATK_01).\n4. Upon hitting, damage calculation proceeds using '1d8+3'. Average roll is 4.5, making damage 4+3=7 (round down). Voss's HP is reduced by 7 to 16 (DMG_01).",
+  "map_updates": [
+    {
+      "op": "move_entity",
+      "entity_id": "pc-01",
+      "from": {
+        "x": 5,
+        "y": 6
+      },
+      "to": {
+        "x": 6,
+        "y": 6
+      }
+    }
+  ],
+  "state_updates": [
+    {
+      "op": "set_hp",
+      "entity_id": "npc-02",
+      "current": 16
+    },
+    {
+      "op": "add_event_log",
+      "event": {
+        "i": 1,
+        "actor_id": "pc-01",
+        "intent": "attack",
+        "input": "Seren attacks Captain Voss.",
+        "result": "Hit",
+        "delta": "Voss loses 7 HP, now at 16."
+      }
+    },
+    {
+      "op": "advance_turn",
+      "round": 1,
+      "turn_index": 13,
+      "active_entity_id": "npc-02"
+    }
+  ],
+  "questions": []
 }

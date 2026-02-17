@@ -19,6 +19,7 @@
  */
 
 import { createServer } from "node:http";
+import "../core/loadEnv.mjs";
 import { proposeAction, proposeActionMock } from "../ai/aiClient.mjs";
 import { parseAiAction } from "../ai/aiActionParser.mjs";
 import { createLogger } from "../core/logger.mjs";

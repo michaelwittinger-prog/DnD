@@ -1,6 +1,41 @@
 {
   "ok": true,
   "violations": [],
-  "allowedOps": [],
+  "allowedOps": [
+    {
+      "op": "move_entity",
+      "entity_id": "pc-01",
+      "from": {
+        "x": 5,
+        "y": 6
+      },
+      "to": {
+        "x": 6,
+        "y": 6
+      }
+    },
+    {
+      "op": "set_hp",
+      "entity_id": "npc-02",
+      "current": 16
+    },
+    {
+      "op": "add_event_log",
+      "event": {
+        "i": 1,
+        "actor_id": "pc-01",
+        "intent": "attack",
+        "input": "Seren attacks Captain Voss.",
+        "result": "Hit",
+        "delta": "Voss loses 7 HP, now at 16."
+      }
+    },
+    {
+      "op": "advance_turn",
+      "round": 1,
+      "turn_index": 13,
+      "active_entity_id": "npc-02"
+    }
+  ],
   "failureGate": null
 }

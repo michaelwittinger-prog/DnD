@@ -6,6 +6,7 @@
  *   node src/pipeline/runTurn.mjs [--state <file>] [--intent <file>] [--seed <n>] [--fixture <ai-response.json>]
  */
 import { resolve } from "path";
+import "../core/loadEnv.mjs";
 import { executeTurn, ROOT } from "./executeTurn.mjs";
 
 function parseArgs() {
