@@ -4,10 +4,20 @@
     {
       "id": "repo-cleanup",
       "path": "subprojects/repo-cleanup",
-      "status": "active",
-      "finalizedAt": null,
+      "status": "finalized",
+      "finalizedAt": "2026-02-17",
       "archivePath": null,
-      "canonicalOutputs": []
+      "canonicalOutputs": [
+        "docs/repo_cleanup_governance.md",
+        "docs/gitlens_routine_checklist.md",
+        "docs/mir_canonical_architecture.md",
+        "scripts/check-no-subproject-references.mjs",
+        "scripts/check-temp-artifacts.mjs",
+        "scripts/report-extension-siblings.mjs",
+        "scripts/remove-identical-mts-duplicates.mjs",
+        ".github/workflows/ci.yml",
+        "package.json"
+      ]
     }
   ]
 }
